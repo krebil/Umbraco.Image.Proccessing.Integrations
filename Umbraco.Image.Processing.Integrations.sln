@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Image.Processing.Core", "src\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj", "{D0861A35-8581-4DBB-92B5-9308F539EC40}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco", "src\Umbraco\Umbraco.csproj", "{DEE77879-AFFA-4E2B-9A76-F83F9F5A301C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D0861A35-8581-4DBB-92B5-9308F539EC40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D0861A35-8581-4DBB-92B5-9308F539EC40}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D0861A35-8581-4DBB-92B5-9308F539EC40}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D0861A35-8581-4DBB-92B5-9308F539EC40}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DEE77879-AFFA-4E2B-9A76-F83F9F5A301C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DEE77879-AFFA-4E2B-9A76-F83F9F5A301C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DEE77879-AFFA-4E2B-9A76-F83F9F5A301C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DEE77879-AFFA-4E2B-9A76-F83F9F5A301C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
