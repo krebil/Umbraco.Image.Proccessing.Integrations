@@ -11,6 +11,12 @@
     <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice"/>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj" />
+    <ProjectReference Include="..\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp.csproj" />
+    <ProjectReference Include="..\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow.csproj" />
+  </ItemGroup>
+
   <PropertyGroup>
     <!--
       Opt-in to app-local ICU to ensure consistent globalization APIs across different platforms.

@@ -19,9 +19,9 @@ public sealed class ImageProcessingOptions
 
     /// <summary>
     /// Physical root directory derivative (processed) output is cached to. Derivative caching is
-    /// disabled when left <see langword="null" />.
+    /// disabled when set to <see langword="null" /> or empty.
     /// </summary>
-    public string? DerivativeCacheRootPath { get; set; }
+    public string? DerivativeCacheRootPath { get; set; } = "App_Data/image-cache";
 
     /// <summary>
     /// Requested widths at or above this value are dropped (mirrors the standalone-service plan's
