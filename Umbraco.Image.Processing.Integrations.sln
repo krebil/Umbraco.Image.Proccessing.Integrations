@@ -10,6 +10,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Umbraco.Image.Processing.Co
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Image.Processing.Core.Tests", "src\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.Tests\Umbraco.Image.Processing.Core.Tests.csproj", "{BA8427AB-D0E3-4E67-8479-5C0C20904366}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Umbraco.Image.Processing.SkiaSharp", "Umbraco.Image.Processing.SkiaSharp", "{1E70866F-E89D-46C0-B5AA-F25B9DD846B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Image.Processing.SkiaSharp", "src\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp.csproj", "{0AAEED08-106E-4AE4-BFFF-066C9B514900}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Image.Processing.SkiaSharp.Tests", "src\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp.Tests\Umbraco.Image.Processing.SkiaSharp.Tests.csproj", "{F4E4F90C-054C-4925-BCD9-C51707072AF2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -56,6 +62,30 @@ Global
 		{BA8427AB-D0E3-4E67-8479-5C0C20904366}.Release|x64.Build.0 = Release|Any CPU
 		{BA8427AB-D0E3-4E67-8479-5C0C20904366}.Release|x86.ActiveCfg = Release|Any CPU
 		{BA8427AB-D0E3-4E67-8479-5C0C20904366}.Release|x86.Build.0 = Release|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Debug|x64.Build.0 = Debug|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Debug|x86.Build.0 = Debug|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Release|x64.ActiveCfg = Release|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Release|x64.Build.0 = Release|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Release|x86.ActiveCfg = Release|Any CPU
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900}.Release|x86.Build.0 = Release|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Debug|x64.Build.0 = Debug|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Debug|x86.Build.0 = Debug|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Release|x64.ActiveCfg = Release|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Release|x64.Build.0 = Release|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Release|x86.ActiveCfg = Release|Any CPU
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -63,5 +93,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{FDB0B517-BC87-2108-2B5C-F80179B27705} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{BA8427AB-D0E3-4E67-8479-5C0C20904366} = {FDB0B517-BC87-2108-2B5C-F80179B27705}
+		{1E70866F-E89D-46C0-B5AA-F25B9DD846B4} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{0AAEED08-106E-4AE4-BFFF-066C9B514900} = {1E70866F-E89D-46C0-B5AA-F25B9DD846B4}
+		{F4E4F90C-054C-4925-BCD9-C51707072AF2} = {1E70866F-E89D-46C0-B5AA-F25B9DD846B4}
 	EndGlobalSection
 EndGlobal
