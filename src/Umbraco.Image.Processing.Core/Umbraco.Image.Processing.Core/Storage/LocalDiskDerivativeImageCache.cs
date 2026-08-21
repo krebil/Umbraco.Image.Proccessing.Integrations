@@ -43,6 +43,19 @@ public sealed class LocalDiskDerivativeImageCache : IDerivativeImageCache
         await content.CopyToAsync(fileStream, cancellationToken);
     }
 
+    public Task ClearAsync(CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrEmpty(_options.DerivativeCacheRootPath) && Directory.Exists(_options.DerivativeCacheRootPath))
+        {
+            foreach (string directory in Directory.EnumerateDirectories(_options.DerivativeCacheRootPath))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
     private string GetCachePath(string cacheKey)
     {
         string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(cacheKey)));

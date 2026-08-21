@@ -5,7 +5,7 @@ using Umbraco.Image.Processing.Core.Media;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Processing;
 
-namespace Umbraco.Image.Processing.Core.UrlGeneration;
+namespace Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 
 /// <summary>
 /// The single <see cref="IImageDimensionExtractor" /> shared by every processor (backoffice Image

@@ -44,6 +44,14 @@ public sealed class ImageProcessingOptions
     /// </summary>
     public byte[]? HmacSecretKey { get; set; }
 
+    /// <summary>
+    /// When set, <see cref="UrlGeneration.ImageProcessingUrlGenerator" /> prefixes generated URLs with
+    /// this value, producing an absolute URL that points straight at a standalone image-processing
+    /// deployment instead of a relative <c>/media/...</c> URL. Leave unset for in-process mode, where
+    /// the relative URL already resolves against the app serving the page.
+    /// </summary>
+    public string? ExternalBaseUrl { get; set; }
+
     public TimeSpan BrowserCacheMaxAge { get; set; } = TimeSpan.FromDays(7);
 
     public TimeSpan CacheControlMaxAge { get; set; } = TimeSpan.FromDays(365);

@@ -1,5 +1,5 @@
 Type: task
-Status: open
+Status: resolved
 Blocked by: 02, 03
 
 ## Question
@@ -17,3 +17,22 @@ Create `src/Umbraco.Image.Processing.Service` — a plain ASP.NET Core project (
 - The `Umbraco` sample project sets this when `ImageProcessing:Mode = Standalone`, so freshly-rendered pages link directly to the standalone service — no redirect round-trip for the common case.
 - The redirect middleware built in the In-Process Sample ticket (05) stays in place regardless — it's the fallback for any `/media` request that reaches the Umbraco app without the host already baked in (rich-text-embedded image URLs, hand-typed/bookmarked URLs, anything from before the config was turned on).
 - Confirm both paths work: a freshly-generated `<img>` URL goes straight to this service, and a bare relative `/media/...` URL hitting the `Umbraco` sample gets redirected here correctly.
+
+## Answer
+
+Built `src/Umbraco.Image.Processing.Service`: a bare `Microsoft.NET.Sdk.Web` ASP.NET Core project (no Umbraco package/project reference — only Core + SkiaSharp + ImageFlow) whose entire `Program.cs` is `AddImageProcessing().UseSkiaSharp()`/`.UseImageFlow()` (config-driven, same `ImageProcessing:Processor` switch as the sample) followed by `app.UseImageProcessing()` as the whole pipeline. `ImageProcessingOptions.RoutePrefix` stays at its default `/media` (not emptied) so this service matches the exact path shape the redirect and the URL generator both target.
+
+- **Local-disk originals**: `appsettings.json` sets `OriginalsRootPath` to `../../Umbraco/wwwroot/media` — a relative path (resolved against `dotnet run`'s working directory) that reaches into the `Umbraco` sample's own media folder, per the map's "point at the same local folder" note. Derivative cache is local to this service (`App_Data/image-cache`, gitignored).
+- **Direct URL generation** (supersedes the map's original "documentation only" note, per the 2026-08-20 revision): added `ImageProcessingOptions.ExternalBaseUrl` to Core. When set, `ImageProcessingUrlGenerator.GetImageUrl()` prefixes the final (already query-built, already HMAC-signed) URL with it — trimming a trailing slash, no other normalization needed since the relative URL always starts with `/`. 6 new unit tests (3 for the prefixing behavior, existing suite extended to pass `ExternalBaseUrl` through the test helper).
+- **`Umbraco/Program.cs`**: `AddImageProcessing()` now runs unconditionally (previously only in `InProcess` mode), since Core's `IImageUrlGenerator`/`IImageDimensionExtractor` must be registered regardless of which mode handles the actual pixels. In `Standalone` mode it sets `options.ExternalBaseUrl ??= Standalone:BaseUrl` — reusing the existing redirect-target config key rather than adding a second one, since they're the same value for this POC. `.UseSkiaSharp()`/`.UseImageFlow()` (the processor registration) and mounting `app.UseImageProcessing()` stay `InProcess`-only, since `Standalone` mode never processes pixels locally.
+- **HMAC secret sharing**: `ImageProcessing:HmacSecretKey` was previously unset in the sample's `appsettings.json` (signing silently disabled). Added it — reusing the same base64 key already present under the unrelated `Umbraco:CMS:Imaging:HMACSecretKey` — to both the sample's and this service's `appsettings.json`, so a URL signed by one validates against the other.
+- Registered the new project in the solution (`dotnet sln add`, nested under the `src` solution folder like its siblings).
+
+**Manually verified** (built the full solution — clean, 0 warnings/errors; ran the Core test suite — 67/67 passing, including the 6 new `ExternalBaseUrl` tests):
+
+- Started the standalone service alone (`dotnet run`, `Processor: ImageFlow`) against real signed URLs computed independently in Python from the shared secret (same HMAC-SHA256-over-canonical-string scheme `HmacSigner` implements): passthrough (900×600 JPEG), `?width=200` (200×133), `?width=300&height=300&cc=0.25,0.25,0.25,0.25` (exact 300×300 crop), and `?format=gif&width=150` (valid 150×100 GIF, ImageFlow-only per ticket 04) all returned 200 with correct output. An unsigned request and a request with a tampered `hmac` token both correctly returned 400.
+- Flipped `Processor` to `SkiaSharp` in the service's `appsettings.json` only (no code change), restarted, re-ran the resize check — identical 200×133 result, confirming the processor swap is config-only on this service too, matching the in-process sample's story.
+- Started the `Umbraco` sample with `Mode: Standalone` alongside the running service: `/` served 200 (CMS boots fine), a bare `GET /media/sample.jpg?width=200` against the sample returned `302 Found` with `Location: http://localhost:5050/media/sample.jpg?width=200` — the redirect fallback works correctly.
+- Reverted both `appsettings.json` files' scratch edits (`Processor`/`Mode`) back to their checked-in defaults (`ImageFlow`/`InProcess`) after verification; the `HmacSecretKey` addition and `ExternalBaseUrl` wiring are permanent.
+
+**Known gap, deferred to ticket 10 (Manual Verification)** — same shape as the gap ticket 05 already flagged: the sample has no authored content/Cropper-configured media picker yet, so the "freshly-generated `<img>` URL goes straight to this service" half of the direct-URL-generation story is verified by code path + the `ExternalBaseUrl` unit tests, not by an actual rendered page's `<img src>`. Full click-through with real content is ticket 10's job once the Aspire AppHost and both quickstarts exist.

@@ -15,6 +15,7 @@
     <ProjectReference Include="..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj" />
     <ProjectReference Include="..\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp.csproj" />
     <ProjectReference Include="..\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow.csproj" />
+    <ProjectReference Include="..\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

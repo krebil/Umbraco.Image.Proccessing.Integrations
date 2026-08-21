@@ -1,0 +1,17 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.5.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <UserSecretsId>f3f79958-6438-4b5a-be54-26046371f5a1</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Umbraco\Umbraco.csproj" />
+    <ProjectReference Include="..\..\Umbraco.Image.Processing.Service\Umbraco.Image.Processing.Service\Umbraco.Image.Processing.Service.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,8 +1,10 @@
+using ImageProcessingDemo;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.ImageFlow;
 using Umbraco.Image.Processing.SkiaSharp;
+using Umbraco.Image.Processing.UmbracoExtensions.DependencyInjection;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -11,10 +13,32 @@ var mode = imageProcessingSection.GetValue("Mode", ImageProcessingMode.InProcess
 var processor = imageProcessingSection.GetValue<ImageProcessorKind?>("Processor")
     ?? throw new InvalidOperationException("ImageProcessing:Processor must be configured (e.g. \"SkiaSharp\" or \"ImageFlow\").");
 
+builder.CreateUmbracoBuilder()
+    .AddBackOffice()
+    .AddWebsite()
+    .AddComposers()
+    .Build();
+
+// Registered after CreateUmbracoBuilder(), not before: Umbraco.Cms's own imaging package registers
+// its own default IImageUrlGenerator/IImageDimensionExtractor, and DI's single-service resolution
+// picks whichever registration is LAST regardless of Add vs TryAdd — so ours must be added after
+// Umbraco's own registrations to actually be the one used. AddUmbracoImageProcessing() replaces them
+// outright rather than relying on registration order alone. This app is always an Umbraco instance —
+// InProcess/Standalone only changes how image *requests* are handled, not whether Umbraco's own
+// IImageUrlGenerator/IImageDimensionExtractor need overriding — so the call is unconditional.
+IImageProcessingBuilder imageProcessingBuilder = builder.Services.AddImageProcessing(options =>
+{
+    imageProcessingSection.Bind(options);
+    if (mode == ImageProcessingMode.Standalone)
+    {
+        // Freshly-rendered pages link straight to the standalone service instead of round-tripping
+        // through this app's redirect middleware below.
+        options.ExternalBaseUrl ??= imageProcessingSection.GetValue<string>("Standalone:BaseUrl");
+    }
+}).AddUmbracoImageProcessing();
+
 if (mode == ImageProcessingMode.InProcess)
 {
-    IImageProcessingBuilder imageProcessingBuilder = builder.Services.AddImageProcessing(options => imageProcessingSection.Bind(options));
-
     _ = processor switch
     {
         ImageProcessorKind.ImageFlow => imageProcessingBuilder.UseImageFlow(),
@@ -22,13 +46,11 @@ if (mode == ImageProcessingMode.InProcess)
     };
 }
 
-builder.CreateUmbracoBuilder()
-    .AddBackOffice()
-    .AddWebsite()
-    .AddComposers()
-    .Build();
-
 WebApplication app = builder.Build();
+
+// A plain, non-Umbraco demo page so a freshly installed site has something to look at: the sample
+// image at a few sizes/commands, plus a button to clear the derivative cache.
+app.MapImageProcessingDemo();
 
 if (mode == ImageProcessingMode.InProcess)
 {

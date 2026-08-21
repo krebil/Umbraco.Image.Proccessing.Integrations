@@ -1,20 +1,20 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Umbraco.Cms.Core.Media;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
-using Umbraco.Image.Processing.Core.UrlGeneration;
 
 namespace Umbraco.Image.Processing.Core.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers everything processor-agnostic: options, HMAC signing, local-disk storage, and the
-    /// single shared <see cref="IImageUrlGenerator" />/<see cref="IImageDimensionExtractor" />. Chain a
+    /// Registers everything processor-agnostic: options, HMAC signing, and local-disk storage. Chain a
     /// processor package's <c>UseSkiaSharp()</c>/<c>UseImageFlow()</c>/<c>UseImageSharp()</c> off the
-    /// returned builder to select which <c>IImageProcessor</c> is active.
+    /// returned builder to select which <c>IImageProcessor</c> is active. In-process/standalone Umbraco
+    /// consumers also chain <c>UmbracoExtensions</c>'s <c>AddUmbracoImageProcessing()</c> to register
+    /// Umbraco's own <c>IImageUrlGenerator</c>/<c>IImageDimensionExtractor</c> — the standalone Service
+    /// never needs it.
     /// </summary>
     public static IImageProcessingBuilder AddImageProcessing(this IServiceCollection services, Action<ImageProcessingOptions>? configure = null)
     {
@@ -23,8 +23,6 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IHmacSigner, HmacSigner>();
         services.TryAddSingleton<IOriginalImageSource, LocalDiskOriginalImageSource>();
         services.TryAddSingleton<IDerivativeImageCache, LocalDiskDerivativeImageCache>();
-        services.TryAddSingleton<IImageUrlGenerator, ImageProcessingUrlGenerator>();
-        services.TryAddSingleton<IImageDimensionExtractor, ImageProcessingDimensionExtractor>();
 
         return new ImageProcessingBuilder(services);
     }

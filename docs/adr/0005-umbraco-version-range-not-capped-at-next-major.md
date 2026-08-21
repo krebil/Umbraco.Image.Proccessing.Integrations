@@ -1,0 +1,7 @@
+# Umbraco dependency range isn't capped at the next major
+
+`UmbracoExtensions` (ADR-0006) — the one product package with a real `Umbraco.Cms.Core` dependency — needs a compatibility range, not the exact pin (`18.1.1`) the repo currently uses everywhere. Core, SkiaSharp, and ImageFlow have no Umbraco dependency at all, so this range applies only to `UmbracoExtensions` and to in-process consumers who add it; standalone consumers never see it. The obvious default is a floor-and-cap range scoped to the major version actually tested (`[18.0.0, 19.0.0)`), widened deliberately once a future major is verified.
+
+Decided against that default. `UmbracoExtensions`'s actual coupling to Umbraco isn't the major version number — it's two specific surfaces: how Umbraco stores/resolves media, and the ImageSharp.Web query-string command vocabulary (`width`, `height`, `format`, `cc`, etc.) it accepts and that Core parses. Both have stayed stable across Umbraco majors historically. So the dependency floor stays open (`>= 18.0.0`, no upper cap) rather than artificially capped at the next major "just in case" — a cap should be added, and the range re-verified, only if a future Umbraco release actually changes media storage or the command surface, not automatically at every major bump.
+
+Consequence: this means "supports multiple Umbraco majors" isn't a testing matrix this project commits to maintaining proactively — it's a byproduct of not touching two specific surfaces, checked reactively when Umbraco ships a major that plausibly touches either one.

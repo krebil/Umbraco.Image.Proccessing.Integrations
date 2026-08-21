@@ -10,4 +10,12 @@
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
     </ItemGroup>
 
+    <ItemGroup>
+        <PackageReference Include="Umbraco.Cms.Core" Version="18.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj" />
+    </ItemGroup>
+
 </Project>

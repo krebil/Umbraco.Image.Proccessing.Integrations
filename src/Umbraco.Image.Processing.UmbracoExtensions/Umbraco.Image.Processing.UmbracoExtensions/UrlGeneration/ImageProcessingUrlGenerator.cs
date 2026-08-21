@@ -9,7 +9,7 @@ using Umbraco.Image.Processing.Core.Commands;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Security;
 
-namespace Umbraco.Image.Processing.Core.UrlGeneration;
+namespace Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 
 /// <summary>
 /// The single <see cref="IImageUrlGenerator" /> shared by every processor — output URL shape never
@@ -89,6 +89,11 @@ public sealed class ImageProcessingUrlGenerator : IImageUrlGenerator
             {
                 url = QueryHelpers.AddQueryString(url, ImageProcessingCommandNames.HmacToken, token);
             }
+        }
+
+        if (!string.IsNullOrEmpty(_options.ExternalBaseUrl))
+        {
+            url = _options.ExternalBaseUrl.TrimEnd('/') + url;
         }
 
         return url;

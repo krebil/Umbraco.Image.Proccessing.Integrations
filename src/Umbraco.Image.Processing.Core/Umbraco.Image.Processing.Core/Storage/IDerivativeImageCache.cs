@@ -9,4 +9,9 @@ public interface IDerivativeImageCache
     Task<Stream?> TryOpenReadAsync(string cacheKey, CancellationToken cancellationToken = default);
 
     Task WriteAsync(string cacheKey, Stream content, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes every cached derivative, forcing the next request for each to be reprocessed.
+    /// </summary>
+    Task ClearAsync(CancellationToken cancellationToken = default);
 }
