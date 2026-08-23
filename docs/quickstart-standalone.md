@@ -1,8 +1,8 @@
 # Quickstart: standalone image processing
 
 This guide deploys image processing as its own ASP.NET Core service, separate
-from Umbraco — so the two can scale independently, and image traffic never
-has to reach the CMS process at all. It uses the same processor packages
+from Umbraco. That way the two can scale independently, and image traffic
+never has to reach the CMS process at all. It uses the same processor packages
 (SkiaSharp or ImageFlow) and the same query-string command surface as the
 in-process setup.
 
@@ -11,7 +11,7 @@ For running in the same process as Umbraco instead, see
 
 ## 1. Build the service
 
-Create a bare ASP.NET Core project — no Umbraco reference at all. Add
+Create a bare ASP.NET Core project with no Umbraco reference at all. Add
 references to Core and one processor project (see the in-process quickstart's
 note on `dotnet add reference` vs `dotnet add package`: these projects aren't
 published to NuGet yet):
@@ -22,7 +22,7 @@ dotnet add reference path/to/Umbraco.Image.Processing.Core.csproj
 dotnet add reference path/to/Umbraco.Image.Processing.SkiaSharp.csproj
 ```
 
-`Program.cs` is small — Core's middleware *is* the whole app:
+`Program.cs` stays small: Core's middleware *is* the whole app.
 
 ```csharp
 using Umbraco.Image.Processing.Core.DependencyInjection;
@@ -57,11 +57,11 @@ await app.RunAsync();
 ```
 
 `RoutePrefix` defaults to `/media`, matching the path shape Umbraco's own
-`<img>` URLs use — leave it as-is unless you have a reason to change it, since
+`<img>` URLs use. Leave it as-is unless you have a reason to change it, since
 the redirect middleware in step 4 assumes it lines up.
 
 `OriginalsRootPath` must resolve to the same media files Umbraco serves. For
-this proof-of-concept that means local disk reachable from both processes —
+this proof-of-concept that means local disk reachable from both processes:
 a shared volume, or (as this repo's own sample does for local dev) a relative
 path across two checked-out projects. Azure Blob or another shared remote
 store is real future work, not built here.
@@ -90,33 +90,34 @@ On the Umbraco side, set:
 }
 ```
 
-This does two things at once — no extra code beyond what's already in the
+This does two things at once, with no extra code beyond what's already in the
 in-process quickstart's `Program.cs`, since both modes share the same
-`AddImageProcessing()` call:
+`AddImageProcessing()` call.
 
-- **Freshly generated `<img>` URLs point straight at the standalone
-  service.** `ImageProcessingOptions.ExternalBaseUrl` (bound here from
-  `Standalone:BaseUrl` when unset) makes `IImageUrlGenerator` emit absolute
-  URLs against the standalone host instead of a relative `/media/...` URL —
-  so newly rendered pages skip a redirect round-trip entirely.
-- **A redirect middleware catches everything else.** URLs that weren't
-  generated with the host baked in — image links embedded in rich text,
-  hand-typed URLs, anything hitting `/media` on the Umbraco app directly —
-  still resolve, because Umbraco mounts a small middleware that 302-redirects
-  matching requests to the standalone service. This mirrors the redirect
-  pattern from `imagesharp-standalone-service-plan.md` §3, made
-  processor-agnostic; no processor-specific code is needed on the Umbraco
-  side for this to work; the middleware runs once, ahead of the CMS's own
-  pipeline, and only in `Standalone` mode.
+First, freshly generated `<img>` URLs point straight at the standalone
+service. `ImageProcessingOptions.ExternalBaseUrl` (bound here from
+`Standalone:BaseUrl` when unset) makes `IImageUrlGenerator` emit absolute URLs
+against the standalone host instead of a relative `/media/...` URL, so newly
+rendered pages skip a redirect round-trip entirely.
 
-Umbraco keeps its normal image-generating code (`IImageUrlGenerator`) — you
-are not hand-writing URLs. The mode switch changes what those calls produce,
-not how you call them.
+Second, a redirect middleware catches everything else. URLs that weren't
+generated with the host baked in (image links embedded in rich text,
+hand-typed URLs, anything hitting `/media` on the Umbraco app directly) still
+resolve, because Umbraco mounts a small middleware that 302-redirects matching
+requests to the standalone service. This mirrors the redirect pattern from
+`imagesharp-standalone-service-plan.md` §3, made processor-agnostic. No
+processor-specific code is needed on the Umbraco side for this to work; the
+middleware just runs once, ahead of the CMS's own pipeline, and only in
+`Standalone` mode.
+
+Umbraco keeps its normal image-generating code (`IImageUrlGenerator`), so
+you're not hand-writing URLs. The mode switch changes what those calls
+produce, not how you call them.
 
 ## 4. The drop-in story: swapping processors
 
-Identical to the in-process case — only the `.UseSkiaSharp()` /
-`.UseImageFlow()` call and the referenced processor project change:
+Identical to the in-process case: only the `.UseSkiaSharp()` /
+`.UseImageFlow()` call and the referenced processor project change.
 
 ```csharp
 imageProcessingBuilder.UseSkiaSharp();
@@ -136,15 +137,15 @@ With the standalone service running and the Umbraco app in `Standalone` mode:
 - Load a page rendered by Umbraco and confirm its `<img>` URLs point straight
   at `https://images.example.com/...` (no redirect needed).
 - Request the same image directly from the Umbraco app's own `/media/...`
-  path and confirm you get a 302 to the standalone service — this is the
+  path and confirm you get a 302 to the standalone service. This is the
   fallback path for URLs the standalone host wasn't baked into.
 - With `HmacSecretKey` set on both sides, confirm a tampered query string
   (change a digit in `width`) gets a 400 from the standalone service.
 
 ## Licensing note (ImageFlow only)
 
-Running an image job through `Imageflow.NET`'s `InProcessAsync()` — exactly
-what the ImageFlow processor does, standalone or in-process — requires
-AGPLv3 compliance or a commercial Imazen license, independent of whether you
-use `Imageflow.Server`. Confirm your license terms before shipping with
+Running an image job through `Imageflow.NET`'s `InProcessAsync()` (exactly
+what the ImageFlow processor does, standalone or in-process) requires AGPLv3
+compliance or a commercial Imazen license, independent of whether you use
+`Imageflow.Server`. Confirm your license terms before shipping with
 ImageFlow.

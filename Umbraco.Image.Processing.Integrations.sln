@@ -26,6 +26,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Umbraco.Image.Processing.Co
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Image.Processing.UmbracoExtensions.Tests", "src\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions.Tests\Umbraco.Image.Processing.UmbracoExtensions.Tests.csproj", "{565095DD-2B5C-4522-B73D-11021CA570BF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Image.Processing.Core.Tests", "src\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.Tests\Umbraco.Image.Processing.Core.Tests.csproj", "{C193E06F-22A2-4CA2-87E1-A5209492C807}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -156,6 +158,18 @@ Global
 		{565095DD-2B5C-4522-B73D-11021CA570BF}.Release|x64.Build.0 = Release|Any CPU
 		{565095DD-2B5C-4522-B73D-11021CA570BF}.Release|x86.ActiveCfg = Release|Any CPU
 		{565095DD-2B5C-4522-B73D-11021CA570BF}.Release|x86.Build.0 = Release|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Debug|x64.Build.0 = Debug|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Debug|x86.Build.0 = Debug|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Release|x64.ActiveCfg = Release|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Release|x64.Build.0 = Release|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Release|x86.ActiveCfg = Release|Any CPU
+		{C193E06F-22A2-4CA2-87E1-A5209492C807}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -165,5 +179,6 @@ Global
 		{EB4E24A3-5636-491F-86C2-8A0C32BE7655} = {5B9DF299-21FA-2738-ED62-33A10BDF4B1C}
 		{FDB0B517-BC87-2108-2B5C-F80179B27705} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{565095DD-2B5C-4522-B73D-11021CA570BF} = {5B9DF299-21FA-2738-ED62-33A10BDF4B1C}
+		{C193E06F-22A2-4CA2-87E1-A5209492C807} = {FDB0B517-BC87-2108-2B5C-F80179B27705}
 	EndGlobalSection
 EndGlobal

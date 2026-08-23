@@ -7,6 +7,8 @@
     <Nullable>enable</Nullable>
     <AspireUseCliBundle>true</AspireUseCliBundle>
     <UserSecretsId>f3f79958-6438-4b5a-be54-26046371f5a1</UserSecretsId>
+    <!-- Reference implementation orchestration, never published as a package. -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>

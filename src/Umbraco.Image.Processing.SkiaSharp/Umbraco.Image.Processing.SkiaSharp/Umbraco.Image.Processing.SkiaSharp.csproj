@@ -6,6 +6,11 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <PackageId>Krebil.Umbraco.Image.Processing.SkiaSharp</PackageId>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="SkiaSharp" Version="4.151.1" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.151.1" />

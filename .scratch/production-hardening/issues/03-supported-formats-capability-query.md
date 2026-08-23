@@ -4,10 +4,12 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `IImageProcessor` exposes a member describing the set of output formats the processor supports
-- [ ] SkiaSharp's implementation reports exactly `jpg`/`jpeg`/`png`/`webp` (no `gif`, no `bmp`)
-- [ ] ImageFlow's implementation reports its supported set including `gif`, excluding `bmp`
-- [ ] Tests assert, per processor, that every format in the declared set actually succeeds and every format outside it actually throws `NotSupportedException` — no drift between the declared set and real behavior
-- [ ] Existing SkiaSharp/ImageFlow unit test suites still pass
+- [x] `IImageProcessor` exposes a member describing the set of output formats the processor supports
+- [x] SkiaSharp's implementation reports exactly `jpg`/`jpeg`/`png`/`webp` (no `gif`, no `bmp`)
+- [x] ImageFlow's implementation reports its supported set including `gif`, excluding `bmp`
+- [x] Tests assert, per processor, that every format in the declared set actually succeeds and every format outside it actually throws `NotSupportedException` — no drift between the declared set and real behavior
+- [x] Existing SkiaSharp/ImageFlow unit test suites still pass
+
+**Resolution:** `IImageProcessor.SupportedOutputFormats` (Core), and both processors' `EncodableFormats` sets and format-succeeds tests, already existed from the original build — landed before this ticket was written. The one gap: SkiaSharp's unsupported-format test only covered `gif`, leaving `bmp` untested against real behavior. Turned `ProcessAsync_UnsupportedFormat_Throws` into a `[Theory]` covering both `gif` and `bmp`. SkiaSharp suite: 17/17 passing (was 16). ImageFlow suite: 19/19 passing, unchanged.

@@ -2,17 +2,17 @@
 
 This guide adds pluggable image processing to an existing Umbraco site, running
 in the same process as Umbraco itself. It replaces `Umbraco.Cms.Imaging.ImageSharp`
-with a processor you choose — SkiaSharp or ImageFlow — while keeping the same
-query-string command surface (`width`, `height`, `format`, `quality`, `bgcolor`,
-autoorient, and Umbraco's `cc` crop/focal-point command).
+with a processor you choose (SkiaSharp or ImageFlow), while keeping the same
+query-string command surface: `width`, `height`, `format`, `quality`, `bgcolor`,
+autoorient, and Umbraco's `cc` crop/focal-point command.
 
 For a separately deployed image service instead, see
 [Quickstart: standalone image processing](quickstart-standalone.md).
 
 ## 1. Add the packages
 
-The processor packages aren't published to NuGet yet — this is a proof-of-concept
-abstraction, not a released library. Reference the projects directly:
+The processor packages aren't published to NuGet yet (this is a proof-of-concept
+abstraction, not a released library), so reference the projects directly:
 
 ```bash
 dotnet add reference path/to/Umbraco.Image.Processing.Core.csproj
@@ -21,15 +21,15 @@ dotnet add reference path/to/Umbraco.Image.Processing.SkiaSharp.csproj
 
 (Swap the last line for `Umbraco.Image.Processing.ImageFlow.csproj` if you're
 starting with ImageFlow. Reference both if you want the config-only swap
-described in step 4 — that's what this repo's own sample site does.)
+described in step 4, the way this repo's own sample site does it.)
 
 ## 2. Remove the stock ImageSharp package
 
 Drop the `Umbraco.Cms.Imaging.ImageSharp` package reference (or
 `Umbraco.Cms.Imaging.ImageSharp2`, if you're on that variant). It registers its
 own `IImageUrlGenerator`/`IImageDimensionExtractor`, which the processing
-package replaces at startup regardless — but removing it avoids shipping an
-imaging pipeline you're not using.
+package replaces at startup regardless. Still worth removing, though, so you're
+not shipping an imaging pipeline you don't use.
 
 ## 3. Register it in `Program.cs`
 
@@ -91,14 +91,14 @@ await app.RunAsync();
 }
 ```
 
-All settings have working defaults (shown above) except `HmacSecretKey`, which
-is unset by default — signing and verification are both disabled until you set
-one. If you enable it, also set `Umbraco:CMS:Imaging:HMACSecretKey` to the same
-value, so Umbraco's own `<img>`/`<picture>` helpers sign URLs the middleware
-will accept.
+All settings have working defaults (shown above) except `HmacSecretKey`. That
+one's unset by default, so signing and verification stay disabled until you
+set it yourself. If you enable it, also set `Umbraco:CMS:Imaging:HMACSecretKey`
+to the same value, so Umbraco's own `<img>`/`<picture>` helpers sign URLs the
+middleware will accept.
 
 `OriginalsRootPath` and `DerivativeCacheRootPath` are local-disk paths for this
-proof-of-concept — no Azure Blob or other remote storage backend yet.
+proof-of-concept. There's no Azure Blob or other remote storage backend yet.
 
 ## 5. The drop-in story: swapping processors
 
@@ -117,12 +117,12 @@ services.AddImageProcessing(configure).UseSkiaSharp();
 services.AddImageProcessing(configure).UseImageFlow();
 ```
 
-Everything else in `Program.cs` — registration order, middleware mount point,
-options binding — stays identical. Swapping processors is a one-line change
+Everything else in `Program.cs` (registration order, middleware mount point,
+options binding) stays identical. Swapping processors is a one-line change
 plus swapping which project you reference.
 
-**Format support differs by processor.** SkiaSharp's encoder supports
-`jpg`/`jpeg`/`png`/`webp` only — a `format=gif` or `format=bmp` request throws.
+Format support differs by processor, though. SkiaSharp's encoder only handles
+`jpg`/`jpeg`/`png`/`webp`, so a `format=gif` or `format=bmp` request throws.
 ImageFlow additionally supports `gif`; neither supports `bmp`. Pick a processor
 that covers the output formats your site actually needs.
 
@@ -140,7 +140,7 @@ for a centered crop, and `format=webp` for a format conversion.
 
 ## Licensing note (ImageFlow only)
 
-Running an image job through `Imageflow.NET`'s `InProcessAsync()` — which is
-exactly what the ImageFlow processor does — requires AGPLv3 compliance or a
-commercial Imazen license, independent of whether you use `Imageflow.Server`.
-Confirm your license terms before shipping with ImageFlow.
+Running an image job through `Imageflow.NET`'s `InProcessAsync()` (exactly
+what the ImageFlow processor does) requires AGPLv3 compliance or a commercial
+Imazen license, independent of whether you use `Imageflow.Server`. Confirm
+your license terms before shipping with ImageFlow.

@@ -1,0 +1,13 @@
+<Project>
+
+    <!--
+      Single source of truth for the product's version. Core, SkiaSharp, ImageFlow, and
+      UmbracoExtensions are versioned in lockstep — every release bumps this one value and ships
+      all four packages under it, even if only one changed (ADR-0001). Bumping it is a manual
+      commit; a matching `v*` git tag triggers the publish workflow.
+    -->
+    <PropertyGroup>
+        <Version>1.0.0</Version>
+    </PropertyGroup>
+
+</Project>

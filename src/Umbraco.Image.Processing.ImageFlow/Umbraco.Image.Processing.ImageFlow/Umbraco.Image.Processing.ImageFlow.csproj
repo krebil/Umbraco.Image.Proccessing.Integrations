@@ -6,8 +6,24 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <PackageId>Krebil.Umbraco.Image.Processing.ImageFlow</PackageId>
+        <!--
+          The wrapper code here is MIT. PackageReadmeFile is what NuGet Gallery renders on the
+          package's own listing page, so that's where the AGPLv3/commercial-license warning about
+          the underlying Imageflow.NET/Imageflow.AllPlatforms dependency belongs (ADR-0002) — a
+          consumer sees it before installing, not buried in a quickstart doc.
+        -->
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="Imageflow.AllPlatforms" Version="0.15.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
     <ItemGroup>

@@ -191,15 +191,17 @@ public class SkiaSharpImageProcessorTests
         Assert.Equal(new SKColor(255, 0, 0, 255), result.GetPixel(0, 0));
     }
 
-    [Fact]
-    public async Task ProcessAsync_UnsupportedFormat_Throws()
+    [Theory]
+    [InlineData("gif")]
+    [InlineData("bmp")]
+    public async Task ProcessAsync_UnsupportedFormat_Throws(string format)
     {
         using MemoryStream source = FourCornerPng();
         var destination = new MemoryStream();
         var processor = new SkiaSharpImageProcessor();
 
         await Assert.ThrowsAsync<NotSupportedException>(
-            () => processor.ProcessAsync(source, destination, Command(format: "gif")));
+            () => processor.ProcessAsync(source, destination, Command(format: format)));
     }
 
     [Theory]
