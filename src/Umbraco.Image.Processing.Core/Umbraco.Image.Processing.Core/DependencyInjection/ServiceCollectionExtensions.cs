@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddOptions<ImageProcessingOptions>().Configure(options => configure?.Invoke(options));
 
+        services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IHmacSigner, HmacSigner>();
         services.TryAddSingleton<IOriginalImageSource, LocalDiskOriginalImageSource>();
         services.TryAddSingleton<IDerivativeImageCache, LocalDiskDerivativeImageCache>();

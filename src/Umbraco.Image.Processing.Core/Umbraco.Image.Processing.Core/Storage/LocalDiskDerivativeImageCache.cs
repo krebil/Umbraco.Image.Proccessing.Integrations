@@ -8,8 +8,13 @@ namespace Umbraco.Image.Processing.Core.Storage;
 public sealed class LocalDiskDerivativeImageCache : IDerivativeImageCache
 {
     private readonly ImageProcessingOptions _options;
+    private readonly TimeProvider _timeProvider;
 
-    public LocalDiskDerivativeImageCache(IOptions<ImageProcessingOptions> options) => _options = options.Value;
+    public LocalDiskDerivativeImageCache(IOptions<ImageProcessingOptions> options, TimeProvider? timeProvider = null)
+    {
+        _options = options.Value;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+    }
 
     public Task<Stream?> TryOpenReadAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
@@ -19,7 +24,7 @@ public sealed class LocalDiskDerivativeImageCache : IDerivativeImageCache
         }
 
         string path = GetCachePath(cacheKey);
-        if (!File.Exists(path))
+        if (!File.Exists(path) || IsExpired(path))
         {
             return Task.FromResult<Stream?>(null);
         }
@@ -54,6 +59,31 @@ public sealed class LocalDiskDerivativeImageCache : IDerivativeImageCache
         }
 
         return Task.CompletedTask;
+    }
+
+    public Task EvictExpiredAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(_options.DerivativeCacheRootPath) || !Directory.Exists(_options.DerivativeCacheRootPath))
+        {
+            return Task.CompletedTask;
+        }
+
+        foreach (string path in Directory.EnumerateFiles(_options.DerivativeCacheRootPath, "*", SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (IsExpired(path))
+            {
+                File.Delete(path);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private bool IsExpired(string path)
+    {
+        var writtenAt = new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero);
+        return _timeProvider.GetUtcNow() - writtenAt > _options.CacheControlMaxAge;
     }
 
     private string GetCachePath(string cacheKey)
