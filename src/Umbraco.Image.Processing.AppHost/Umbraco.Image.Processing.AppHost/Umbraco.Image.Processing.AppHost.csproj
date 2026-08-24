@@ -16,4 +16,8 @@
     <ProjectReference Include="..\..\Umbraco.Image.Processing.Service\Umbraco.Image.Processing.Service\Umbraco.Image.Processing.Service.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.5.0" />
+  </ItemGroup>
+
 </Project>

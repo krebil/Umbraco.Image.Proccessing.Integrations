@@ -1,0 +1,19 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.5.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <!-- Test-only Aspire host, referenced by Umbraco.Image.Processing.AzureBlob.Tests via
+         DistributedApplicationTestingBuilder.CreateAsync<TEntryPoint>() so the cache-contract suite
+         starts only the Azurite resource, not the full product AppHost's Umbraco/Service graph. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.5.0" />
+  </ItemGroup>
+
+</Project>

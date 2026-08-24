@@ -97,8 +97,12 @@ set it yourself. If you enable it, also set `Umbraco:CMS:Imaging:HMACSecretKey`
 to the same value, so Umbraco's own `<img>`/`<picture>` helpers sign URLs the
 middleware will accept.
 
-`OriginalsRootPath` and `DerivativeCacheRootPath` are local-disk paths for this
-proof-of-concept. There's no Azure Blob or other remote storage backend yet.
+`OriginalsRootPath` and `DerivativeCacheRootPath` default to local-disk paths.
+If Umbraco's own media is Blob-backed instead, `UseAzureBlobOriginalImageSource()`
+works in-process too — `IOriginalImageSource` is just a registered service,
+independent of in-process vs. standalone. See [Quickstart: standalone image
+processing](quickstart-standalone.md#blob-mode-resolving-originals-from-azure-blob-storage)
+for the setup; everything there applies here unchanged.
 
 ## 5. The drop-in story: swapping processors
 

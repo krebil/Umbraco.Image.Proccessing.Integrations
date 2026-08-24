@@ -13,5 +13,7 @@
     <PackageVersion Include="Umbraco.Cms" Version="18.1.1" />
     <PackageVersion Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="18.1.1" />
     <PackageVersion Include="Microsoft.ICU.ICU4C.Runtime" Version="$(UmbracoAppLocalIcuVersion)" />
+    <!-- Blob media file system, opt-in via ImageProcessing:Storage:Mode = "AzureBlob" (production-hardening ticket 11). -->
+    <PackageVersion Include="Umbraco.StorageProviders.AzureBlob" Version="18.0.0" />
   </ItemGroup>
 </Project>

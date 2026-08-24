@@ -1,4 +1,5 @@
 using ImageProcessingDemo;
+using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
 using Umbraco.Image.Processing.Core.Options;
@@ -12,12 +13,24 @@ IConfigurationSection imageProcessingSection = builder.Configuration.GetSection(
 var mode = imageProcessingSection.GetValue("Mode", ImageProcessingMode.InProcess);
 var processor = imageProcessingSection.GetValue<ImageProcessorKind?>("Processor")
     ?? throw new InvalidOperationException("ImageProcessing:Processor must be configured (e.g. \"SkiaSharp\" or \"ImageFlow\").");
+var storageMode = imageProcessingSection.GetValue("Storage:Mode", ImageStorageMode.LocalDisk);
 
-builder.CreateUmbracoBuilder()
+IUmbracoBuilder umbracoBuilder = builder.CreateUmbracoBuilder()
     .AddBackOffice()
     .AddWebsite()
-    .AddComposers()
-    .Build();
+    .AddComposers();
+
+if (storageMode == ImageStorageMode.AzureBlob)
+{
+    // Umbraco.StorageProviders.AzureBlob auto-binds AzureBlobFileSystemOptions from
+    // Umbraco:Storage:AzureBlob:Media (its own native config path — a different section from this
+    // repo's own ImageProcessing:Storage:AzureBlob, which the standalone Service's
+    // AzureBlobOriginalImageSource reads separately). The two must point at the same container so
+    // both sides read/write the same media (production-hardening ticket 11).
+    umbracoBuilder.AddAzureBlobMediaFileSystem();
+}
+
+umbracoBuilder.Build();
 
 // Registered after CreateUmbracoBuilder(), not before: Umbraco.Cms's own imaging package registers
 // its own default IImageUrlGenerator/IImageDimensionExtractor, and DI's single-service resolution
@@ -51,6 +64,9 @@ WebApplication app = builder.Build();
 // A plain, non-Umbraco demo page so a freshly installed site has something to look at: the sample
 // image at a few sizes/commands, plus a button to clear the derivative cache.
 app.MapImageProcessingDemo();
+
+// Test-support only — see E2ETestSupportEndpoints' own doc comment (production-hardening ticket 11).
+app.MapE2ETestSupportEndpoints();
 
 if (mode == ImageProcessingMode.InProcess)
 {
@@ -128,4 +144,15 @@ internal enum ImageProcessorKind
 {
     SkiaSharp,
     ImageFlow,
+}
+
+/// <summary>
+/// Where this sample's media is physically stored. AzureBlob wires Umbraco's own media file system
+/// to Blob Storage (<c>Umbraco.StorageProviders.AzureBlob</c>) instead of local disk — orthogonal to
+/// <see cref="ImageProcessingMode" />, which only governs how image *requests* are handled.
+/// </summary>
+internal enum ImageStorageMode
+{
+    LocalDisk,
+    AzureBlob,
 }

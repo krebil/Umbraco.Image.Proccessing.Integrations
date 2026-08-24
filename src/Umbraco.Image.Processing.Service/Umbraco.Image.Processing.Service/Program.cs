@@ -1,3 +1,5 @@
+using Umbraco.Image.Processing.AzureBlob.DependencyInjection;
+using Umbraco.Image.Processing.AzureBlob.Options;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
 using Umbraco.Image.Processing.ImageFlow;
@@ -8,6 +10,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 IConfigurationSection imageProcessingSection = builder.Configuration.GetSection("ImageProcessing");
 var processor = imageProcessingSection.GetValue<ImageProcessorKind?>("Processor")
     ?? throw new InvalidOperationException("ImageProcessing:Processor must be configured (e.g. \"SkiaSharp\" or \"ImageFlow\").");
+var storageMode = imageProcessingSection.GetValue("Storage:Mode", ImageStorageMode.LocalDisk);
 
 IImageProcessingBuilder imageProcessingBuilder = builder.Services.AddImageProcessing(options => imageProcessingSection.Bind(options));
 
@@ -16,6 +19,15 @@ _ = processor switch
     ImageProcessorKind.ImageFlow => imageProcessingBuilder.UseImageFlow(),
     _ => imageProcessingBuilder.UseSkiaSharp(),
 };
+
+if (storageMode == ImageStorageMode.AzureBlob)
+{
+    // Reads originals straight from the same Blob container Umbraco's own Blob-backed media file
+    // system (Umbraco.StorageProviders.AzureBlob) writes to — no shared disk/volume between the two
+    // processes, unlike LocalDisk mode's OriginalsRootPath convention (production-hardening ticket 11).
+    imageProcessingBuilder.UseAzureBlobOriginalImageSource(options =>
+        imageProcessingSection.GetSection("Storage:AzureBlob").Bind(options));
+}
 
 WebApplication app = builder.Build();
 
@@ -35,3 +47,20 @@ internal enum ImageProcessorKind
     SkiaSharp,
     ImageFlow,
 }
+
+/// <summary>
+/// Where this service resolves original (unprocessed) media from. LocalDisk expects a shared
+/// disk/volume with Umbraco (<see cref="Umbraco.Image.Processing.Core.Options.ImageProcessingOptions.OriginalsRootPath" />);
+/// AzureBlob expects Umbraco's media file system to also be Blob-backed, at the same container.
+/// </summary>
+internal enum ImageStorageMode
+{
+    LocalDisk,
+    AzureBlob,
+}
+
+/// <summary>
+/// Marker so integration tests can boot this app via <c>WebApplicationFactory&lt;Program&gt;</c> —
+/// top-level statements otherwise generate an internal, inaccessible <c>Program</c> class.
+/// </summary>
+public partial class Program;

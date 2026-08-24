@@ -60,11 +60,89 @@ await app.RunAsync();
 `<img>` URLs use. Leave it as-is unless you have a reason to change it, since
 the redirect middleware in step 4 assumes it lines up.
 
-`OriginalsRootPath` must resolve to the same media files Umbraco serves. For
-this proof-of-concept that means local disk reachable from both processes:
-a shared volume, or (as this repo's own sample does for local dev) a relative
-path across two checked-out projects. Azure Blob or another shared remote
-store is real future work, not built here.
+`OriginalsRootPath` must resolve to the same media files Umbraco serves. This
+is local-disk mode: it needs local disk reachable from both processes — a
+shared volume, or (as this repo's own sample does for local dev) a relative
+path across two checked-out projects. It only works while Umbraco and the
+standalone service share a filesystem, which stops being true once they're
+genuinely separate deployments (see `imagesharp-standalone-service-plan.md`
+§2). For that case, use Blob mode instead.
+
+### Blob mode: resolving originals from Azure Blob Storage
+
+If Umbraco's own media is Blob-backed instead of local disk, point the
+standalone service at the same container directly — no shared disk between
+the two processes at all.
+
+On the Umbraco side, add the `Umbraco.StorageProviders.AzureBlob` package and
+wire its media file system:
+
+```csharp
+builder.CreateUmbracoBuilder()
+    .AddBackOffice()
+    .AddWebsite()
+    .AddComposers()
+    .AddAzureBlobMediaFileSystem()
+    .Build();
+```
+
+```json
+{
+  "Umbraco": {
+    "Storage": {
+      "AzureBlob": {
+        "Media": {
+          "ConnectionString": "<same connection string as the service, below>",
+          "ContainerName": "media"
+        }
+      }
+    }
+  }
+}
+```
+
+On the standalone service side, swap `IOriginalImageSource` to the Blob
+implementation instead of setting `OriginalsRootPath`:
+
+```csharp
+using Umbraco.Image.Processing.AzureBlob.DependencyInjection;
+
+imageProcessingBuilder.UseAzureBlobOriginalImageSource(options =>
+    builder.Configuration.GetSection("ImageProcessing:Storage:AzureBlob").Bind(options));
+```
+
+```json
+{
+  "ImageProcessing": {
+    "Storage": {
+      "AzureBlob": {
+        "ConnectionString": "<same connection string as Umbraco's Media file system, above>",
+        "ContainerName": "media",
+        "BlobPathPrefix": "media"
+      }
+    }
+  }
+}
+```
+
+Both sides must point at the **same** connection string and container.
+`ContainerName` here is the container Umbraco's media file system writes to.
+`BlobPathPrefix` defaults to `"media"`, matching `Umbraco.StorageProviders.AzureBlob`'s
+own default blob naming; only change it if you've overridden
+`ContainerRootPath`/`VirtualPath` on the Umbraco side.
+
+If you also enable `AzureBlobDerivativeImageCache` (ticket 05) for the
+derivative cache, it can share the **same storage account** (the same
+`ConnectionString`) as this — but keep it in its **own container**
+(`AzureBlobCacheOptions.ContainerName`, default `"image-derivative-cache"`),
+not this one. `ClearAsync`/`EvictExpiredAsync` enumerate and delete
+everything in the cache's container, which would be unsafe to run against a
+container that also holds Umbraco's real media.
+
+Unlike the derivative cache, this container is **not created automatically**
+— its lifecycle belongs to Umbraco's media file system. Provision it yourself
+ahead of deploy, the same way you would for a real Azure Storage account. A
+missing container surfaces as every request 404ing, not a startup failure.
 
 ### Sharing the HMAC secret
 

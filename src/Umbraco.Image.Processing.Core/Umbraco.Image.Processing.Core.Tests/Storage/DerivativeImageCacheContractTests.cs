@@ -56,6 +56,17 @@ public abstract class DerivativeImageCacheContractTests
         Assert.Null(result);
     }
 
+    /// <summary>
+    /// Margin past/under <c>maxAge</c> used by the expiry-boundary facts below. A backend that stamps
+    /// entries using its own real external clock rather than the injected <see cref="TimeProvider" />
+    /// (e.g. Blob Storage's server-side <c>Last-Modified</c>) can have real wall-clock time — network
+    /// latency, first-call container/connection setup — elapse between constructing the frozen
+    /// <see cref="FakeTimeProvider" /> baseline and the entry's actual timestamp being recorded. A
+    /// generous margin (cost-free, since <see cref="FakeTimeProvider.Advance" /> is instant) keeps
+    /// these facts correct without needing to measure that real elapsed time.
+    /// </summary>
+    private static readonly TimeSpan BoundaryMargin = TimeSpan.FromMinutes(2);
+
     [Fact]
     public async Task TryOpenReadAsync_EntryOlderThanMaxAge_ReturnsNull()
     {
@@ -64,7 +75,7 @@ public abstract class DerivativeImageCacheContractTests
         IDerivativeImageCache cache = CreateCache(maxAge, timeProvider);
         await cache.WriteAsync("key", ContentStream("content"));
 
-        timeProvider.Advance(maxAge + TimeSpan.FromSeconds(1));
+        timeProvider.Advance(maxAge + BoundaryMargin);
 
         Stream? result = await cache.TryOpenReadAsync("key");
         Assert.Null(result);
@@ -78,7 +89,7 @@ public abstract class DerivativeImageCacheContractTests
         IDerivativeImageCache cache = CreateCache(maxAge, timeProvider);
         await cache.WriteAsync("key", ContentStream("content"));
 
-        timeProvider.Advance(maxAge - TimeSpan.FromSeconds(1));
+        timeProvider.Advance(maxAge - BoundaryMargin);
 
         await using Stream? result = await cache.TryOpenReadAsync("key");
         Assert.NotNull(result);
@@ -92,7 +103,7 @@ public abstract class DerivativeImageCacheContractTests
         IDerivativeImageCache cache = CreateCache(maxAge, timeProvider);
         await cache.WriteAsync("key", ContentStream("content"));
 
-        TimeSpan expiredBy = maxAge + TimeSpan.FromSeconds(1);
+        TimeSpan expiredBy = maxAge + BoundaryMargin;
         timeProvider.Advance(expiredBy);
         await cache.EvictExpiredAsync();
 
