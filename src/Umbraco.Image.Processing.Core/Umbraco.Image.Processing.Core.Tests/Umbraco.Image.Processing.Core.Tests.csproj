@@ -12,6 +12,11 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- Stand-in for Umbraco's own /__image-origin endpoint in HttpOriginalImageSource's contract
+             tests — a minimal in-process host, not the real Umbraco sample (see ADR-0008: TestServer is
+             the right tool for a test scoped to this class's own HTTP handling; only the real
+             cross-process redirect-loop behavior needs the full Aspire E2E suite). -->
+        <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.0" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
         <PackageReference Include="xunit" Version="2.9.2" />
         <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">

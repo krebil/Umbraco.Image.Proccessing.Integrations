@@ -1,9 +1,11 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
+using Microsoft.AspNetCore.Http;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Security;
+using Umbraco.Image.Processing.Core.Storage;
 using Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 
 namespace Umbraco.Image.Processing.E2E.Tests;
@@ -36,10 +38,11 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     public HttpClient ServiceClient { get; private set; } = null!;
 
     /// <summary>
-    /// Starts the whole graph. <paramref name="storageMode" /> is <c>"LocalDisk"</c> (default) or
-    /// <c>"AzureBlob"</c> — forwarded straight to <c>AppHost.cs</c>'s own <c>Storage:Mode</c> switch.
-    /// Always runs Umbraco in Standalone image-processing mode: LocalDisk mode's redirect-to-Service
-    /// behavior and Blob mode both only matter when Umbraco isn't handling image requests itself.
+    /// Starts the whole graph. <paramref name="storageMode" /> is <c>"LocalDisk"</c> (default),
+    /// <c>"AzureBlob"</c>, or <c>"HttpProxy"</c> — forwarded straight to <c>AppHost.cs</c>'s own
+    /// <c>Storage:Mode</c> switch. Always runs Umbraco in Standalone image-processing mode: LocalDisk
+    /// mode's redirect-to-Service behavior, Blob mode, and HttpProxy mode's reverse fetch all only
+    /// matter when Umbraco isn't handling image requests itself.
     /// </summary>
     public async Task StartAsync(string storageMode = "LocalDisk", CancellationToken cancellationToken = default)
     {
@@ -103,6 +106,28 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
         var generator = new ImageProcessingUrlGenerator(options, new HmacSigner(options));
         return generator.GetImageUrl(new ImageUrlGenerationOptions(relativeMediaUrl) { Width = width })
             ?? throw new InvalidOperationException("ImageProcessingUrlGenerator returned no URL.");
+    }
+
+    /// <summary>
+    /// Builds an HMAC-signed request path for Umbraco's raw-original endpoint
+    /// (<see cref="HttpOriginalImageSource.OriginRoutePrefix" />) the same way
+    /// <see cref="HttpOriginalImageSource" /> — the real class the Service uses in HttpProxy storage
+    /// mode — would, without going through the Service at all: issued directly against
+    /// <see cref="UmbracoClient" />, this proves the endpoint itself is reachable and correctly signed,
+    /// independent of whether the Service's own round trip to it also works.
+    /// </summary>
+    public string SignedOriginUrl(string relativeMediaUrl)
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new ImageProcessingOptions { HmacSecretKey = Convert.FromBase64String(HmacSecretKeyBase64) });
+        var signer = new HmacSigner(options);
+
+        string relative = relativeMediaUrl.StartsWith(options.Value.RoutePrefix, StringComparison.OrdinalIgnoreCase)
+            ? relativeMediaUrl[options.Value.RoutePrefix.Length..]
+            : relativeMediaUrl;
+        var path = new PathString($"{HttpOriginalImageSource.OriginRoutePrefix}{relative}");
+
+        string? token = signer.ComputeToken(path, QueryCollection.Empty);
+        return token is null ? path.Value! : $"{path}?hmac={token}";
     }
 
     private static async Task PollUntilRespondingAsync(HttpClient client, string path, CancellationToken cancellationToken)

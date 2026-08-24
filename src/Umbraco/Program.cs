@@ -68,6 +68,10 @@ app.MapImageProcessingDemo();
 // Test-support only — see E2ETestSupportEndpoints' own doc comment (production-hardening ticket 11).
 app.MapE2ETestSupportEndpoints();
 
+// Real production endpoint, not test-only — see OriginImageEndpoints' own doc comment
+// (production-hardening ticket 12).
+app.MapOriginImageEndpoints();
+
 if (mode == ImageProcessingMode.InProcess)
 {
     // Mounted before Umbraco's own pipeline: the middleware serves media requests (resized,

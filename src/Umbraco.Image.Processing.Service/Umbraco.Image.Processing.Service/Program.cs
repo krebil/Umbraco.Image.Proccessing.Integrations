@@ -28,6 +28,14 @@ if (storageMode == ImageStorageMode.AzureBlob)
     imageProcessingBuilder.UseAzureBlobOriginalImageSource(options =>
         imageProcessingSection.GetSection("Storage:AzureBlob").Bind(options));
 }
+else if (storageMode == ImageStorageMode.HttpProxy)
+{
+    // Neither a shared disk nor Blob-backed media applies: fetches originals from Umbraco itself over
+    // HTTP, via the raw-original endpoint Umbraco mounts unconditionally at HttpOriginalImageSource's
+    // own OriginRoutePrefix (production-hardening ticket 12).
+    imageProcessingBuilder.UseHttpOriginalImageSource(options =>
+        imageProcessingSection.GetSection("Proxy").Bind(options));
+}
 
 WebApplication app = builder.Build();
 
@@ -51,12 +59,14 @@ internal enum ImageProcessorKind
 /// <summary>
 /// Where this service resolves original (unprocessed) media from. LocalDisk expects a shared
 /// disk/volume with Umbraco (<see cref="Umbraco.Image.Processing.Core.Options.ImageProcessingOptions.OriginalsRootPath" />);
-/// AzureBlob expects Umbraco's media file system to also be Blob-backed, at the same container.
+/// AzureBlob expects Umbraco's media file system to also be Blob-backed, at the same container;
+/// HttpProxy expects neither — it fetches the raw original from Umbraco itself over HTTP.
 /// </summary>
 internal enum ImageStorageMode
 {
     LocalDisk,
     AzureBlob,
+    HttpProxy,
 }
 
 /// <summary>

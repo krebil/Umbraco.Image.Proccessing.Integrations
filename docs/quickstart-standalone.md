@@ -144,6 +144,79 @@ Unlike the derivative cache, this container is **not created automatically**
 ahead of deploy, the same way you would for a real Azure Storage account. A
 missing container surfaces as every request 404ing, not a startup failure.
 
+### HTTP-proxy mode: fetching originals from Umbraco over HTTP
+
+If Umbraco's media is plain local disk *and* Umbraco and the standalone
+service are genuinely separate deployments with no shared disk/volume,
+neither `OriginalsRootPath` nor Blob mode applies. Use this third mode
+instead: the service asks Umbraco itself for the raw file over HTTP.
+
+On the Umbraco side, mount a raw-original endpoint — same idea as step 3's
+redirect middleware below: a small piece of glue code in your own
+`Program.cs`, not a call into a packaged method, since it's specific to how
+your app is deployed. It's served at a path that deliberately does **not**
+nest under `RoutePrefix`, so it's exempt from that redirect middleware — a
+naive request under `RoutePrefix` would otherwise bounce straight back to the
+service that made it:
+
+```csharp
+using Umbraco.Image.Processing.Core.Commands;
+using Umbraco.Image.Processing.Core.Security;
+using Umbraco.Image.Processing.Core.Storage;
+
+app.MapGet($"{HttpOriginalImageSource.OriginRoutePrefix}/{{**path}}", async (
+    HttpContext context,
+    IOriginalImageSource originalImageSource,
+    IHmacSigner hmacSigner) =>
+{
+    if (!hmacSigner.Validate(context.Request.Path, context.Request.Query, context.Request.Query[ImageProcessingCommandNames.HmacToken]))
+    {
+        return Results.StatusCode(StatusCodes.Status400BadRequest);
+    }
+
+    string relativePath = "/" + ((string?)context.GetRouteValue("path") ?? string.Empty);
+    Stream? source = await originalImageSource.OpenReadAsync(relativePath, context.RequestAborted);
+    return source is null ? Results.NotFound() : Results.Stream(source, "application/octet-stream");
+});
+```
+
+`IOriginalImageSource` and `IHmacSigner` here resolve from the same DI
+registrations `AddImageProcessing()` already sets up for your Umbraco app's
+own in-process image handling — no separate wiring needed, and safe to mount
+unconditionally regardless of `ImageProcessing:Mode`, since it costs nothing
+when nothing calls it and carries the same HMAC guard as the rest of your
+image requests.
+
+On the standalone service side, swap `IOriginalImageSource` to the HTTP
+implementation instead of setting `OriginalsRootPath`:
+
+```csharp
+using Umbraco.Image.Processing.Core.DependencyInjection;
+
+imageProcessingBuilder.UseHttpOriginalImageSource(options =>
+    builder.Configuration.GetSection("ImageProcessing:Proxy").Bind(options));
+```
+
+```json
+{
+  "ImageProcessing": {
+    "Proxy": {
+      "UmbracoBaseUrl": "<Umbraco's own internal base URL, reachable from the service>"
+    }
+  }
+}
+```
+
+`UmbracoBaseUrl` points the opposite direction from `Standalone:BaseUrl`
+below: that one tells Umbraco where the service is, this one tells the
+service where Umbraco is. They're independent settings and commonly resolve
+to different hosts (public vs. internal).
+
+The request Umbraco receives is guarded by the same `HmacSecretKey` used
+everywhere else in this guide — the service signs its own outbound request
+with it, and Umbraco's endpoint validates the signature the same way it
+validates any other image request. There's no separate secret to configure.
+
 ### Sharing the HMAC secret
 
 Both apps need the **same** `HmacSecretKey`: the Umbraco app signs URLs with
