@@ -14,3 +14,8 @@
 - [ ] A correctly HMAC-signed request is accepted
 - [ ] A tampered or unsigned request is rejected with the correct status code
 - [ ] Tests run against both hosts without duplicating the same assertions inline per host (shared test helpers where the two pipelines overlap)
+
+## Comments
+
+- **Head start, not a claim**: in response to a direct user request (not this ticket being picked up), `src/Umbraco.Image.Processing.Service/Umbraco.Image.Processing.Service.Tests` now exists with the `WebApplicationFactory<Program>` scaffolding (`Program.cs` gained the `public partial class Program;` marker top-level statements need for this) and one real test: `MediaResolutionTests.ImageSavedTheWayUmbracoSavesIt_IsResolvableThroughTheStandaloneService` — writes a file at the exact relative path Umbraco's own `UniqueMediaPathScheme` (confirmed as Umbraco.Cms 18's real default `IMediaPathScheme`) would compute, builds the request URL via the real `ImageProcessingUrlGenerator`, and asserts a resize request against the standalone Service resolves and processes it correctly — plus a negative control (`ImageAtWrongRelativePath_IsNotResolvable`, asserts 404) proving the positive case is actually contingent on path agreement. This covers this ticket's "resize" and "HMAC accept" bullets for the Service host only.
+- **Not covered yet**: pass-through, format conversion, `cc` crop, tampered-or-unsigned reject, the in-process `Umbraco` sample host, and shared test helpers across both hosts. Whoever picks this ticket up should extend `Service.Tests` rather than start a parallel project, and still needs an equivalent `WebApplicationFactory` project for the `Umbraco` sample.
