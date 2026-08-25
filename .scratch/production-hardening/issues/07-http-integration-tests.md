@@ -4,18 +4,24 @@
 
 **Blocked by:** 01 (needs the post-split DI/middleware wiring — Core + UmbracoExtensions — to be final before testing against it).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Integration test project(s) use `WebApplicationFactory` against both `Umbraco.Image.Processing.Service` and the in-process `Umbraco` sample
-- [ ] Pass-through request returns the original image unmodified
-- [ ] Resize request returns correct status/content-type with the expected dimensions reflected in a successful response
-- [ ] Format-conversion request returns the correct `Content-Type`
-- [ ] `cc` crop request succeeds at the HTTP level
-- [ ] A correctly HMAC-signed request is accepted
-- [ ] A tampered or unsigned request is rejected with the correct status code
-- [ ] Tests run against both hosts without duplicating the same assertions inline per host (shared test helpers where the two pipelines overlap)
+- [x] Integration test project(s) use `WebApplicationFactory` against both `Umbraco.Image.Processing.Service` and the in-process `Umbraco` sample
+- [x] Pass-through request returns the original image unmodified
+- [x] Resize request returns correct status/content-type with the expected dimensions reflected in a successful response
+- [x] Format-conversion request returns the correct `Content-Type`
+- [x] `cc` crop request succeeds at the HTTP level
+- [x] A correctly HMAC-signed request is accepted
+- [x] A tampered or unsigned request is rejected with the correct status code
+- [x] Tests run against both hosts without duplicating the same assertions inline per host (shared test helpers where the two pipelines overlap)
 
 ## Comments
 
 - **Head start, not a claim**: in response to a direct user request (not this ticket being picked up), `src/Umbraco.Image.Processing.Service/Umbraco.Image.Processing.Service.Tests` now exists with the `WebApplicationFactory<Program>` scaffolding (`Program.cs` gained the `public partial class Program;` marker top-level statements need for this) and one real test: `MediaResolutionTests.ImageSavedTheWayUmbracoSavesIt_IsResolvableThroughTheStandaloneService` — writes a file at the exact relative path Umbraco's own `UniqueMediaPathScheme` (confirmed as Umbraco.Cms 18's real default `IMediaPathScheme`) would compute, builds the request URL via the real `ImageProcessingUrlGenerator`, and asserts a resize request against the standalone Service resolves and processes it correctly — plus a negative control (`ImageAtWrongRelativePath_IsNotResolvable`, asserts 404) proving the positive case is actually contingent on path agreement. This covers this ticket's "resize" and "HMAC accept" bullets for the Service host only.
 - **Not covered yet**: pass-through, format conversion, `cc` crop, tampered-or-unsigned reject, the in-process `Umbraco` sample host, and shared test helpers across both hosts. Whoever picks this ticket up should extend `Service.Tests` rather than start a parallel project, and still needs an equivalent `WebApplicationFactory` project for the `Umbraco` sample.
+- **Shared test helpers, new project**: added `Umbraco.Image.Processing.IntegrationTests.Shared` (plain class library, referenced by both test projects) holding `TestImages` (the `FourCornerPngBytes()` fixture already duplicated between `Service.Tests` and `E2E.Tests`, plus a new `SolidColorPngBytes(width, height)` for resize/format/crop cases that need a bigger source) and `SignedRequestUrlBuilder` — a thin wrapper over the real `HmacSigner` with three methods, `Signed`/`Unsigned`/`Tampered`, so neither host's test project hand-rolls HMAC canonicalization or duplicates URL-building. `MediaResolutionTests` was updated to call `TestImages.FourCornerPngBytes()` instead of keeping its own private copy.
+- **Service host — remaining scenarios**: new `ImageProcessingPipelineTests.cs` in `Service.Tests` covers pass-through (byte-identical response, no processing commands), resize, `format=webp` conversion, `cc` crop, and the tampered/unsigned reject cases, alongside a `CorrectlySignedRequest_IsAccepted` fact — each test writes its own source file under a fresh temp `OriginalsRootPath`/`DerivativeCacheRootPath` pair and boots its own `WebApplicationFactory<Program>`, matching `MediaResolutionTests`' existing per-test style.
+- **In-process `Umbraco` sample host — new project, `src/Umbraco.Tests`**: added the `public partial class Program;` marker to `src/Umbraco/Program.cs` (same reason `Service.Tests` needed one), then a `WebApplicationFactory<Program>` project against the *real* sample — deliberately not Umbraco's own `Umbraco.Cms.Tests.Integration` NUnit package, which builds its own hand-rolled `UmbracoBuilder` composition from scratch rather than exercising this repo's actual `Program.cs`; using it would test a parallel composition root instead of the wiring this ticket exists to catch regressions in (confirmed via ADR-0008, which already scopes `WebApplicationFactory` as the right tool for single-app pipeline tests with no cross-deployment behavior to prove).
+- **One real Umbraco boot per test class, not per test**: `UmbracoWebAppFixture` (`IAsyncLifetime`, shared via `IClassFixture<T>`) boots the sample once — a real unattended install against a fresh temp SQLite file, verified by inspecting the resulting DB directly (49-row `umbracoNode`, full Umbraco schema, real seed data) — and all 7 facts in `ImageProcessingPipelineTests` share that one `HttpClient`, each writing its own source file under the fixture's temp `MediaRoot` first. Total suite time is ~9s including build, not per-test boot cost.
+- **Full solution build and test run after the change**: 0 warnings/errors. All fast suites green: Core 71, SkiaSharp 17, ImageFlow 19, UmbracoExtensions 10, AzureBlob 12, `Service.Tests` 9 (2 existing + 7 new), `Umbraco.Tests` 7 (new project). The Aspire-orchestrated `E2E.Tests` suite (ticket 11/12, genuinely different test shape per ADR-0008) was left untouched — not re-run here since it boots real separate processes and isn't what this ticket's checklist covers.
+- **`src/Umbraco.Tests/.gitignore` added**: referencing `Umbraco.csproj` triggers the same Umbraco.Cms MSBuild target that copies `appsettings-schema*.json`/`umbraco-package-schema.json` into any referencing project's directory — `src/Umbraco/.gitignore` already excludes these for the sample itself; mirrored the same exclusions here so the new test project doesn't check in generated schema files.

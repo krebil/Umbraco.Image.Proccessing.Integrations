@@ -8,6 +8,7 @@ using Umbraco.Cms.Core.IO.MediaPathSchemes;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Security;
+using Umbraco.Image.Processing.IntegrationTests.Shared;
 using Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 using Xunit;
 using File = System.IO.File;
@@ -58,7 +59,7 @@ public sealed class MediaResolutionTests : IDisposable
         string relativePath = new UniqueMediaPathScheme().GetFilePath(fileManager: null!, Guid.NewGuid(), Guid.NewGuid(), "photo.jpg");
         string fullPath = Path.Combine(_mediaRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await File.WriteAllBytesAsync(fullPath, FourCornerPngBytes());
+        await File.WriteAllBytesAsync(fullPath, TestImages.FourCornerPngBytes());
 
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
@@ -99,7 +100,7 @@ public sealed class MediaResolutionTests : IDisposable
         string relativePath = new UniqueMediaPathScheme().GetFilePath(fileManager: null!, Guid.NewGuid(), Guid.NewGuid(), "photo.jpg");
         string fullPath = Path.Combine(_mediaRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await File.WriteAllBytesAsync(fullPath, FourCornerPngBytes());
+        await File.WriteAllBytesAsync(fullPath, TestImages.FourCornerPngBytes());
 
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
@@ -119,18 +120,5 @@ public sealed class MediaResolutionTests : IDisposable
         using HttpResponseMessage response = await client.GetAsync(url);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    private static byte[] FourCornerPngBytes()
-    {
-        using var bitmap = new SKBitmap(2, 2, SKColorType.Rgba8888, SKAlphaType.Unpremul);
-        bitmap.SetPixel(0, 0, new SKColor(255, 0, 0));
-        bitmap.SetPixel(1, 0, new SKColor(0, 255, 0));
-        bitmap.SetPixel(0, 1, new SKColor(0, 0, 255));
-        bitmap.SetPixel(1, 1, new SKColor(255, 255, 0));
-
-        using SKImage image = SKImage.FromBitmap(bitmap);
-        using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-        return data.ToArray();
     }
 }

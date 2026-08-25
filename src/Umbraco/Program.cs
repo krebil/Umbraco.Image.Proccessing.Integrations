@@ -160,3 +160,9 @@ internal enum ImageStorageMode
     LocalDisk,
     AzureBlob,
 }
+
+/// <summary>
+/// Marker so integration tests can boot this app via <c>WebApplicationFactory&lt;Program&gt;</c> —
+/// top-level statements otherwise generate an internal, inaccessible <c>Program</c> class.
+/// </summary>
+public partial class Program;

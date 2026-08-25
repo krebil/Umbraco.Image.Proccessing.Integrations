@@ -24,9 +24,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Umbraco.Image.Processing.Service\Umbraco.Image.Processing.Service.csproj" />
-        <ProjectReference Include="..\..\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions.csproj" />
-        <ProjectReference Include="..\..\Umbraco.Image.Processing.IntegrationTests.Shared\Umbraco.Image.Processing.IntegrationTests.Shared.csproj" />
+        <ProjectReference Include="..\Umbraco\Umbraco.csproj" />
+        <ProjectReference Include="..\Umbraco.Image.Processing.IntegrationTests.Shared\Umbraco.Image.Processing.IntegrationTests.Shared.csproj" />
     </ItemGroup>
 
 </Project>

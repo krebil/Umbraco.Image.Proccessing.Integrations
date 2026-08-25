@@ -1,0 +1,14 @@
+[Bb]in/
+[Oo]bj/
+
+##
+## Umbraco CMS
+##
+
+# JSON schema files for appsettings.json (copied here by an Umbraco.Cms build target because this
+# project references src/Umbraco/Umbraco.csproj — same reason src/Umbraco/.gitignore excludes them).
+appsettings-schema.json
+appsettings-schema.*.json
+
+# JSON schema file for umbraco-package.json
+umbraco-package-schema.json
