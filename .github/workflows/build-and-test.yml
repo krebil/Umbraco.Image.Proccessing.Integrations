@@ -1,0 +1,89 @@
+name: Build and test
+
+# Production-hardening ticket 09: the complete build+test gate for every PR and every push to a
+# long-lived branch. No publish step here — ticket 10's tag-triggered publish workflow reuses this
+# same restore/build/test sequence (copy the steps below into that workflow's job) before it packs
+# and pushes to nuget.org.
+#
+# Trigger scoping: `pull_request` covers work-in-progress branches, `push` is scoped to `main` only.
+# A branch with an open PR against main does not also re-run on push, because push only fires for
+# main itself (direct pushes/merges), not for the feature branch — so the same commit is not built
+# twice.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# Cancel a still-running workflow for the same PR/branch when a new commit supersedes it.
+concurrency:
+  group: build-and-test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    # Generous headroom: the AzureBlob cache-contract suite and the E2E suite both self-orchestrate
+    # real Docker containers/processes (Azurite via Aspire, and for E2E the full Umbraco + Service +
+    # Azurite app graph with up to a 3-minute readiness timeout on its own). Local validation of the
+    # full sequence below completed in well under 5 minutes; this leaves slower-runner headroom.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Umbraco.Image.Processing.Integrations.sln
+
+      # Directory.Build.props sets TreatWarningsAsErrors + EnforceCodeStyleInBuild (ticket 08), so
+      # this step alone already fails the build on any compiler warning or unaddressed code-style
+      # suggestion — no extra warning-detection logic needed here.
+      - name: Build
+        run: dotnet build Umbraco.Image.Processing.Integrations.sln --no-restore
+
+      # --- Ordinary unit tests: no external dependencies. ---
+      - name: Test - Core
+        run: dotnet test src/Umbraco.Image.Processing.Core/Umbraco.Image.Processing.Core.Tests --no-build
+
+      - name: Test - SkiaSharp
+        run: dotnet test src/Umbraco.Image.Processing.SkiaSharp/Umbraco.Image.Processing.SkiaSharp.Tests --no-build
+
+      - name: Test - ImageFlow
+        run: dotnet test src/Umbraco.Image.Processing.ImageFlow/Umbraco.Image.Processing.ImageFlow.Tests --no-build
+
+      - name: Test - UmbracoExtensions
+        run: dotnet test src/Umbraco.Image.Processing.UmbracoExtensions/Umbraco.Image.Processing.UmbracoExtensions.Tests --no-build
+
+      # --- Cross-processor parity suite (ticket 06): no external dependencies. ---
+      - name: Test - Parity suite
+        run: dotnet test src/Umbraco.Image.Processing.ParityTests --no-build
+
+      # --- Cache-contract suite including the Blob backend (tickets 04/05). AzuriteFixture
+      # self-orchestrates its own Azurite container via Aspire's DistributedApplicationTestingBuilder
+      # (the same mechanism Umbraco.Image.Processing.AppHost uses) — it just needs Docker reachable,
+      # which ubuntu-latest runners provide out of the box. No `services:` container needed. ---
+      - name: Test - AzureBlob cache contract (Azurite)
+        run: dotnet test src/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob.Tests --no-build
+
+      # --- HTTP integration tests (ticket 07): WebApplicationFactory against both hosts, no
+      # external dependencies. ---
+      - name: Test - Service HTTP integration
+        run: dotnet test src/Umbraco.Image.Processing.Service/Umbraco.Image.Processing.Service.Tests --no-build
+
+      - name: Test - Umbraco sample HTTP integration
+        run: dotnet test src/Umbraco.Tests --no-build
+
+      # --- Full app-graph E2E suite (tickets 11/12): boots the real Umbraco sample, the standalone
+      # Service, and Azurite as separate processes via Aspire, with up to a 3-minute app-graph
+      # readiness timeout. Heavier than the suites above, but included so this ticket's gate is
+      # genuinely the "complete test suite" ticket 10 relies on. See ticket comments for the
+      # rationale of including it here rather than leaving it out. ---
+      - name: Test - E2E (full app graph)
+        run: dotnet test src/Umbraco.Image.Processing.E2E.Tests --no-build
