@@ -293,6 +293,34 @@ With the standalone service running and the Umbraco app in `Standalone` mode:
 - With `HmacSecretKey` set on both sides, confirm a tampered query string
   (change a digit in `width`) gets a 400 from the standalone service.
 
+## Scheduling eviction
+
+`IDerivativeImageCache.EvictExpiredAsync` removes entries older than
+`CacheControlMaxAge`. Nothing in this repo calls it automatically — that's a
+deliberate choice, not an oversight (production-hardening ticket 13). Reads
+already filter expired entries on their own (`TryOpenReadAsync` never serves
+a stale one), so skipping eviction doesn't risk correctness, only unbounded
+disk/Blob growth over time.
+
+Wire `EvictExpiredAsync` into whatever trigger fits your deployment: an
+endpoint you add and call from an external scheduler (a Kubernetes
+`CronJob`, an Azure Function Timer, a cloud scheduler), a `BackgroundService`
+if you'd rather have an always-on process own it, or anything else — this
+repo doesn't prescribe a mechanism, the same way it doesn't prescribe your
+rate limiting or secret management.
+
+If you're hosting this service somewhere that scales to zero (Azure
+Container Apps, Cloud Run, and similar), an HTTP trigger has a second
+benefit: the scheduler's call is also what wakes the app to run the pass.
+That's part of why this repo doesn't ship an in-process timer here — an
+always-warm background timer would keep the process alive permanently and
+defeat scale-to-zero outright.
+
+Local-disk eviction (a directory walk) and Blob eviction
+(`AzureBlobDerivativeImageCache`, a full `GetBlobsAsync` container listing
+with real API cost) may reasonably run on different cadences — that's your
+call per backend, not a single fixed answer this repo provides.
+
 ## Licensing note (ImageFlow only)
 
 Running an image job through `Imageflow.NET`'s `InProcessAsync()` (exactly

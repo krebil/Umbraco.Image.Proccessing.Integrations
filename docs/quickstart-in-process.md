@@ -142,6 +142,27 @@ You should get back a 400px-wide image, and a cached derivative should appear
 under `DerivativeCacheRootPath`. Try `cc=0.25,0.25,0.25,0.25&width=300&height=300`
 for a centered crop, and `format=webp` for a format conversion.
 
+## Scheduling eviction
+
+`IDerivativeImageCache.EvictExpiredAsync` removes entries older than
+`CacheControlMaxAge`. Nothing in this repo calls it automatically — that's a
+deliberate choice, not an oversight (production-hardening ticket 13). Reads
+already filter expired entries on their own (`TryOpenReadAsync` never serves
+a stale one), so skipping eviction doesn't risk correctness, only unbounded
+disk/Blob growth over time.
+
+Wire `EvictExpiredAsync` into whatever trigger fits your deployment: a
+backoffice/admin endpoint you add and call from an external scheduler (a
+Kubernetes `CronJob`, an Azure Function Timer, a cloud scheduler), a
+`BackgroundService` if you'd rather have Umbraco's own process own it, or
+anything else — this repo doesn't prescribe a mechanism, the same way it
+doesn't prescribe your rate limiting or secret management.
+
+Local-disk eviction (a directory walk) and Blob eviction
+(`AzureBlobDerivativeImageCache`, a full `GetBlobsAsync` container listing
+with real API cost) may reasonably run on different cadences — that's your
+call per backend, not a single fixed answer this repo provides.
+
 ## Licensing note (ImageFlow only)
 
 Running an image job through `Imageflow.NET`'s `InProcessAsync()` (exactly
