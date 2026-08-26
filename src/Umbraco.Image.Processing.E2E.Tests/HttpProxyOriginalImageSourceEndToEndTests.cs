@@ -44,7 +44,7 @@ public sealed class HttpProxyOriginalImageSourceEndToEndTests
             // away, not a redirect — proving it never enters the matching logic above (it's outside
             // RoutePrefix entirely, see HttpOriginalImageSource's own remarks on why that's what breaks
             // the loop).
-            string originUrl = harness.SignedOriginUrl(relativeUrl);
+            string originUrl = UmbracoServiceGraphHarness.SignedOriginUrl(relativeUrl);
             using HttpResponseMessage originResponse = await noAutoRedirectUmbracoClient.GetAsync(originUrl);
             Assert.Equal(HttpStatusCode.OK, originResponse.StatusCode);
 
@@ -52,7 +52,7 @@ public sealed class HttpProxyOriginalImageSourceEndToEndTests
             // HttpOriginalImageSource's whole round trip (Service -> Umbraco's raw-original endpoint ->
             // back to the Service) actually completes, and completes with the right bytes, rather than
             // hanging/erroring on a loop.
-            string signedResizeUrl = harness.SignedResizeUrl(relativeUrl, width: 200);
+            string signedResizeUrl = UmbracoServiceGraphHarness.SignedResizeUrl(relativeUrl, width: 200);
             using HttpResponseMessage response = await harness.ServiceClient.GetAsync(signedResizeUrl);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);

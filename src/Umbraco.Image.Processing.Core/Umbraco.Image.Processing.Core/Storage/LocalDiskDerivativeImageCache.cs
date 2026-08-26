@@ -5,16 +5,10 @@ using Umbraco.Image.Processing.Core.Options;
 
 namespace Umbraco.Image.Processing.Core.Storage;
 
-public sealed class LocalDiskDerivativeImageCache : IDerivativeImageCache
+public sealed class LocalDiskDerivativeImageCache(IOptions<ImageProcessingOptions> options, TimeProvider? timeProvider = null) : IDerivativeImageCache
 {
-    private readonly ImageProcessingOptions _options;
-    private readonly TimeProvider _timeProvider;
-
-    public LocalDiskDerivativeImageCache(IOptions<ImageProcessingOptions> options, TimeProvider? timeProvider = null)
-    {
-        _options = options.Value;
-        _timeProvider = timeProvider ?? TimeProvider.System;
-    }
+    private readonly ImageProcessingOptions _options = options.Value;
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     public Task<Stream?> TryOpenReadAsync(string cacheKey, CancellationToken cancellationToken = default)
     {

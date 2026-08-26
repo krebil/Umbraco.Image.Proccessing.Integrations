@@ -36,11 +36,11 @@ public sealed class SignedRequestUrlBuilder
     }
 
     /// <summary>The same request with no <c>hmac</c> token at all — the "unsigned" reject case.</summary>
-    public string Unsigned(string path, params (string Key, string Value)[] query) =>
+    public static string Unsigned(string path, params (string Key, string Value)[] query) =>
         QueryHelpers.AddQueryString(path, ToDictionary(query));
 
     /// <summary>A syntactically present but wrong <c>hmac</c> token — the "tampered" reject case.</summary>
-    public string Tampered(string path, params (string Key, string Value)[] query)
+    public static string Tampered(string path, params (string Key, string Value)[] query)
     {
         Dictionary<string, string?> queryDictionary = ToDictionary(query);
         queryDictionary[ImageProcessingCommandNames.HmacToken] = new string('0', 64);

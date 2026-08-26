@@ -10,8 +10,8 @@ public class ImageCommandParserTests
 {
     private static readonly ImageProcessingOptions Options = new() { MaxWidth = 5000, MaxHeight = 5000 };
 
-    private static IQueryCollection Query(params (string Key, string Value)[] pairs) =>
-        new QueryCollection(pairs.ToDictionary(p => p.Key, p => new StringValues(p.Value)));
+    private static QueryCollection Query(params (string Key, string Value)[] pairs) =>
+        new(pairs.ToDictionary(p => p.Key, p => new StringValues(p.Value)));
 
     [Fact]
     public void EmptyQueryHasNoProcessingCommands()

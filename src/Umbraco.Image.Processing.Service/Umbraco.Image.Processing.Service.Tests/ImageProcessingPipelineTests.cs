@@ -128,7 +128,7 @@ public sealed class ImageProcessingPipelineTests : IDisposable
         using HttpClient client = factory.CreateClient();
         var urls = new SignedRequestUrlBuilder(_hmacSecretKey);
 
-        using HttpResponseMessage response = await client.GetAsync(urls.Tampered("/media/hmac-tampered.png", ("width", "1")));
+        using HttpResponseMessage response = await client.GetAsync(SignedRequestUrlBuilder.Tampered("/media/hmac-tampered.png", ("width", "1")));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -142,7 +142,7 @@ public sealed class ImageProcessingPipelineTests : IDisposable
         using HttpClient client = factory.CreateClient();
         var urls = new SignedRequestUrlBuilder(_hmacSecretKey);
 
-        using HttpResponseMessage response = await client.GetAsync(urls.Unsigned("/media/hmac-unsigned.png", ("width", "1")));
+        using HttpResponseMessage response = await client.GetAsync(SignedRequestUrlBuilder.Unsigned("/media/hmac-unsigned.png", ("width", "1")));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

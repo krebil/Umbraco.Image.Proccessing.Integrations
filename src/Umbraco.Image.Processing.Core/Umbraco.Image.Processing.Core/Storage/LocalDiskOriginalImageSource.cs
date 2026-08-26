@@ -3,11 +3,9 @@ using Umbraco.Image.Processing.Core.Options;
 
 namespace Umbraco.Image.Processing.Core.Storage;
 
-public sealed class LocalDiskOriginalImageSource : IOriginalImageSource
+public sealed class LocalDiskOriginalImageSource(IOptions<ImageProcessingOptions> options) : IOriginalImageSource
 {
-    private readonly ImageProcessingOptions _options;
-
-    public LocalDiskOriginalImageSource(IOptions<ImageProcessingOptions> options) => _options = options.Value;
+    private readonly ImageProcessingOptions _options = options.Value;
 
     public Task<Stream?> OpenReadAsync(string requestPath, CancellationToken cancellationToken = default)
     {

@@ -5,11 +5,9 @@ namespace Umbraco.Image.Processing.Core.Tests.TestSupport;
 /// past its max age, or rewind past an eviction pass to prove removal was physical rather than a
 /// TTL-check artifact, without real delays.
 /// </summary>
-public sealed class FakeTimeProvider : TimeProvider
+public sealed class FakeTimeProvider(DateTimeOffset start) : TimeProvider
 {
-    private DateTimeOffset _utcNow;
-
-    public FakeTimeProvider(DateTimeOffset start) => _utcNow = start;
+    private DateTimeOffset _utcNow = start;
 
     public override DateTimeOffset GetUtcNow() => _utcNow;
 

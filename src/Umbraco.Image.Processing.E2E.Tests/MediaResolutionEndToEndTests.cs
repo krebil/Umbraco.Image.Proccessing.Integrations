@@ -27,7 +27,7 @@ public sealed class MediaResolutionEndToEndTests
 
         try
         {
-            string signedUrl = harness.SignedResizeUrl(relativeUrl, width: 200);
+            string signedUrl = UmbracoServiceGraphHarness.SignedResizeUrl(relativeUrl, width: 200);
 
             using HttpResponseMessage response = await harness.ServiceClient.GetAsync(signedUrl);
 
@@ -52,7 +52,7 @@ public sealed class MediaResolutionEndToEndTests
         await harness.StartAsync(storageMode: "AzureBlob");
 
         string relativeUrl = await harness.SaveMediaAsync(FourCornerPngBytes(), "e2e-azure-blob.png");
-        string signedUrl = harness.SignedResizeUrl(relativeUrl, width: 200);
+        string signedUrl = UmbracoServiceGraphHarness.SignedResizeUrl(relativeUrl, width: 200);
 
         using HttpResponseMessage response = await harness.ServiceClient.GetAsync(signedUrl);
 

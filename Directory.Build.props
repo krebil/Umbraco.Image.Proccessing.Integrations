@@ -10,4 +10,16 @@
         <Version>1.0.0</Version>
     </PropertyGroup>
 
+    <!--
+      Production-hardening ticket 08: escalate IDE/analyzer code-style suggestions to build-time
+      warnings (and, via TreatWarningsAsErrors, build failures) so the warning/style baseline this
+      ticket established does not silently regress. Without EnforceCodeStyleInBuild, style
+      suggestions only show up through an explicit "dotnet format" verification run, which nothing
+      runs automatically.
+    -->
+    <PropertyGroup>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    </PropertyGroup>
+
 </Project>

@@ -16,16 +16,10 @@ namespace Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 /// varies by which processor is active, so there's exactly one implementation. Produces Umbraco's
 /// existing <c>/media/...?width=...&amp;cc=...</c> shape, HMAC-signed when configured.
 /// </summary>
-public sealed class ImageProcessingUrlGenerator : IImageUrlGenerator
+public sealed class ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions> options, IHmacSigner hmacSigner) : IImageUrlGenerator
 {
-    private readonly ImageProcessingOptions _options;
-    private readonly IHmacSigner _hmacSigner;
-
-    public ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions> options, IHmacSigner hmacSigner)
-    {
-        _options = options.Value;
-        _hmacSigner = hmacSigner;
-    }
+    private readonly ImageProcessingOptions _options = options.Value;
+    private readonly IHmacSigner _hmacSigner = hmacSigner;
 
     public IEnumerable<string> SupportedImageFileTypes => _options.SupportedRequestExtensions.Select(e => e.TrimStart('.'));
 

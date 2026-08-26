@@ -15,12 +15,10 @@ namespace Umbraco.Image.Processing.AzureBlob.Tests.Storage;
 /// class instance per test method) gives each test the isolation the contract expects, backed by one
 /// shared Azurite container for the whole class (started once via <see cref="AzuriteFixture" />).
 /// </summary>
-public sealed class AzureBlobDerivativeImageCacheTests : DerivativeImageCacheContractTests, IClassFixture<AzuriteFixture>
+public sealed class AzureBlobDerivativeImageCacheTests(AzuriteFixture fixture) : DerivativeImageCacheContractTests, IClassFixture<AzuriteFixture>
 {
-    private readonly AzuriteFixture _fixture;
+    private readonly AzuriteFixture _fixture = fixture;
     private readonly string _containerName = "derivative-cache-" + Guid.NewGuid().ToString("N");
-
-    public AzureBlobDerivativeImageCacheTests(AzuriteFixture fixture) => _fixture = fixture;
 
     protected override IDerivativeImageCache CreateCache(TimeSpan maxAge, TimeProvider timeProvider) =>
         new AzureBlobDerivativeImageCache(

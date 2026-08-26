@@ -16,6 +16,8 @@ public class LocalDiskDerivativeImageCacheTests : DerivativeImageCacheContractTe
         {
             Directory.Delete(_root, recursive: true);
         }
+
+        GC.SuppressFinalize(this);
     }
 
     protected override IDerivativeImageCache CreateCache(TimeSpan maxAge, TimeProvider timeProvider) =>

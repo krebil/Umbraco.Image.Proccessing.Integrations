@@ -2,7 +2,6 @@ using System.Text;
 using Azure.Storage.Blobs;
 using Umbraco.Image.Processing.AzureBlob.Options;
 using Umbraco.Image.Processing.AzureBlob.Storage;
-using Umbraco.Image.Processing.Core.Storage;
 using Xunit;
 using MicrosoftOptions = Microsoft.Extensions.Options.Options;
 
@@ -16,12 +15,10 @@ namespace Umbraco.Image.Processing.AzureBlob.Tests.Storage;
 /// purely through its own public seam, mirroring <c>AzureBlobDerivativeImageCacheTests</c>' isolation
 /// pattern (a fresh, randomly-named container per test instance, one shared Azurite emulator per class).
 /// </summary>
-public sealed class AzureBlobOriginalImageSourceTests : IClassFixture<AzuriteFixture>
+public sealed class AzureBlobOriginalImageSourceTests(AzuriteFixture fixture) : IClassFixture<AzuriteFixture>
 {
-    private readonly AzuriteFixture _fixture;
+    private readonly AzuriteFixture _fixture = fixture;
     private readonly string _containerName = "media-" + Guid.NewGuid().ToString("N");
-
-    public AzureBlobOriginalImageSourceTests(AzuriteFixture fixture) => _fixture = fixture;
 
     [Fact]
     public async Task OpenReadAsync_BlobExists_ReturnsItsSeekableContent()
@@ -31,7 +28,7 @@ public sealed class AzureBlobOriginalImageSourceTests : IClassFixture<AzuriteFix
         byte[] expected = "not a real image, just bytes to round-trip"u8.ToArray();
         await container.GetBlobClient("1234/photo.jpg").UploadAsync(new MemoryStream(expected), overwrite: true);
 
-        IOriginalImageSource source = CreateSource();
+        AzureBlobOriginalImageSource source = CreateSource();
 
         await using Stream? stream = await source.OpenReadAsync("/1234/photo.jpg");
 
@@ -59,7 +56,7 @@ public sealed class AzureBlobOriginalImageSourceTests : IClassFixture<AzuriteFix
         var container = new BlobContainerClient(_fixture.ConnectionString, _containerName);
         await container.CreateIfNotExistsAsync();
 
-        IOriginalImageSource source = CreateSource();
+        AzureBlobOriginalImageSource source = CreateSource();
 
         Stream? stream = await source.OpenReadAsync("/does-not-exist/photo.jpg");
 
@@ -71,7 +68,7 @@ public sealed class AzureBlobOriginalImageSourceTests : IClassFixture<AzuriteFix
     {
         // No CreateIfNotExistsAsync call — proves the source doesn't create the container itself,
         // unlike AzureBlobDerivativeImageCache: its lifecycle belongs to Umbraco's media file system.
-        IOriginalImageSource source = CreateSource();
+        AzureBlobOriginalImageSource source = CreateSource();
 
         Stream? stream = await source.OpenReadAsync("/1234/photo.jpg");
 
@@ -90,7 +87,7 @@ public sealed class AzureBlobOriginalImageSourceTests : IClassFixture<AzuriteFix
         byte[] expected = Encoding.UTF8.GetBytes("literal-dotdot-blob");
         await container.GetBlobClient("a/../b/photo.jpg").UploadAsync(new MemoryStream(expected), overwrite: true);
 
-        IOriginalImageSource source = CreateSource();
+        AzureBlobOriginalImageSource source = CreateSource();
 
         await using Stream? stream = await source.OpenReadAsync("/a/../b/photo.jpg");
 

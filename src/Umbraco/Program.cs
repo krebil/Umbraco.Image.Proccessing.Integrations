@@ -161,8 +161,6 @@ internal enum ImageStorageMode
     AzureBlob,
 }
 
-/// <summary>
-/// Marker so integration tests can boot this app via <c>WebApplicationFactory&lt;Program&gt;</c> —
-/// top-level statements otherwise generate an internal, inaccessible <c>Program</c> class.
-/// </summary>
-public partial class Program;
+// The compiler-generated top-level-statements Program class is already public in ASP.NET Core Web
+// SDK projects, so integration tests can boot this app via WebApplicationFactory<Program> without an
+// explicit partial class declaration here (ASP0027).

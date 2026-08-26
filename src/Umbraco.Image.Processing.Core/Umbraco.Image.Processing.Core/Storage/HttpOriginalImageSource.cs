@@ -23,7 +23,7 @@ namespace Umbraco.Image.Processing.Core.Storage;
 /// route isn't an unauthenticated bulk-download of every original; the route change and the signature
 /// are independent layers, one avoids the loop, the other stops unauthenticated access.
 /// </remarks>
-public sealed class HttpOriginalImageSource : IOriginalImageSource
+public sealed class HttpOriginalImageSource(HttpClient httpClient, IHmacSigner hmacSigner, IOptions<HttpOriginalImageSourceOptions> options) : IOriginalImageSource
 {
     /// <summary>
     /// Path prefix Umbraco mounts its raw-original endpoint at. Fixed, not configurable: both sides
@@ -32,16 +32,9 @@ public sealed class HttpOriginalImageSource : IOriginalImageSource
     /// </summary>
     public const string OriginRoutePrefix = "/__image-origin";
 
-    private readonly HttpClient _httpClient;
-    private readonly IHmacSigner _hmacSigner;
-    private readonly string _umbracoBaseUrl;
-
-    public HttpOriginalImageSource(HttpClient httpClient, IHmacSigner hmacSigner, IOptions<HttpOriginalImageSourceOptions> options)
-    {
-        _httpClient = httpClient;
-        _hmacSigner = hmacSigner;
-        _umbracoBaseUrl = options.Value.UmbracoBaseUrl.TrimEnd('/');
-    }
+    private readonly HttpClient _httpClient = httpClient;
+    private readonly IHmacSigner _hmacSigner = hmacSigner;
+    private readonly string _umbracoBaseUrl = options.Value.UmbracoBaseUrl.TrimEnd('/');
 
     public async Task<Stream?> OpenReadAsync(string requestPath, CancellationToken cancellationToken = default)
     {

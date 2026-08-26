@@ -13,8 +13,8 @@ public class HmacSignerTests
     private static HmacSigner CreateSigner(byte[]? secret) =>
         new(MicrosoftOptions.Create(new ImageProcessingOptions { HmacSecretKey = secret }));
 
-    private static IQueryCollection Query(params (string Key, string Value)[] pairs) =>
-        new QueryCollection(pairs.ToDictionary(p => p.Key, p => new StringValues(p.Value)));
+    private static QueryCollection Query(params (string Key, string Value)[] pairs) =>
+        new(pairs.ToDictionary(p => p.Key, p => new StringValues(p.Value)));
 
     [Fact]
     public void DisabledWhenNoSecretConfigured()

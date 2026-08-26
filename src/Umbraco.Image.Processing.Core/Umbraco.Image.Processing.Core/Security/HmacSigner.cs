@@ -12,11 +12,9 @@ namespace Umbraco.Image.Processing.Core.Security;
 /// verification both build the same canonical string, so the token added by
 /// <c>ImageProcessingUrlGenerator</c> validates against whatever the request's actual command set is.
 /// </summary>
-public sealed class HmacSigner : IHmacSigner
+public sealed class HmacSigner(IOptions<ImageProcessingOptions> options) : IHmacSigner
 {
-    private readonly ImageProcessingOptions _options;
-
-    public HmacSigner(IOptions<ImageProcessingOptions> options) => _options = options.Value;
+    private readonly ImageProcessingOptions _options = options.Value;
 
     public bool IsEnabled => _options.HmacSecretKey is { Length: > 0 };
 

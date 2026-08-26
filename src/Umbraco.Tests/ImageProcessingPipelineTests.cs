@@ -16,16 +16,10 @@ namespace Umbraco.Tests;
 /// mounted before Umbraco's own pipeline in InProcess mode — that unit tests at the processor/cache seam
 /// can't see.
 /// </summary>
-public sealed class ImageProcessingPipelineTests : IClassFixture<UmbracoWebAppFixture>
+public sealed class ImageProcessingPipelineTests(UmbracoWebAppFixture fixture) : IClassFixture<UmbracoWebAppFixture>
 {
-    private readonly UmbracoWebAppFixture _fixture;
-    private readonly SignedRequestUrlBuilder _urls;
-
-    public ImageProcessingPipelineTests(UmbracoWebAppFixture fixture)
-    {
-        _fixture = fixture;
-        _urls = new SignedRequestUrlBuilder(fixture.HmacSecretKey);
-    }
+    private readonly UmbracoWebAppFixture _fixture = fixture;
+    private readonly SignedRequestUrlBuilder _urls = new(fixture.HmacSecretKey);
 
     [Fact]
     public async Task PassThroughRequest_ReturnsOriginalImageUnmodified()
@@ -95,7 +89,7 @@ public sealed class ImageProcessingPipelineTests : IClassFixture<UmbracoWebAppFi
     {
         await WriteSourceAsync("hmac-tampered.png", TestImages.FourCornerPngBytes());
 
-        using HttpResponseMessage response = await _fixture.Client.GetAsync(_urls.Tampered("/media/hmac-tampered.png", ("width", "1")));
+        using HttpResponseMessage response = await _fixture.Client.GetAsync(SignedRequestUrlBuilder.Tampered("/media/hmac-tampered.png", ("width", "1")));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -105,7 +99,7 @@ public sealed class ImageProcessingPipelineTests : IClassFixture<UmbracoWebAppFi
     {
         await WriteSourceAsync("hmac-unsigned.png", TestImages.FourCornerPngBytes());
 
-        using HttpResponseMessage response = await _fixture.Client.GetAsync(_urls.Unsigned("/media/hmac-unsigned.png", ("width", "1")));
+        using HttpResponseMessage response = await _fixture.Client.GetAsync(SignedRequestUrlBuilder.Unsigned("/media/hmac-unsigned.png", ("width", "1")));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

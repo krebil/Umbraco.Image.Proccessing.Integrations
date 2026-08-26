@@ -100,7 +100,7 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     /// these URLs — would, without pointing it at a live app (no <c>ExternalBaseUrl</c>, no DI): the
     /// resulting relative path is issued directly against <see cref="ServiceClient" />.
     /// </summary>
-    public string SignedResizeUrl(string relativeMediaUrl, int width)
+    public static string SignedResizeUrl(string relativeMediaUrl, int width)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new ImageProcessingOptions { HmacSecretKey = Convert.FromBase64String(HmacSecretKeyBase64) });
         var generator = new ImageProcessingUrlGenerator(options, new HmacSigner(options));
@@ -116,7 +116,7 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     /// <see cref="UmbracoClient" />, this proves the endpoint itself is reachable and correctly signed,
     /// independent of whether the Service's own round trip to it also works.
     /// </summary>
-    public string SignedOriginUrl(string relativeMediaUrl)
+    public static string SignedOriginUrl(string relativeMediaUrl)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new ImageProcessingOptions { HmacSecretKey = Convert.FromBase64String(HmacSecretKeyBase64) });
         var signer = new HmacSigner(options);

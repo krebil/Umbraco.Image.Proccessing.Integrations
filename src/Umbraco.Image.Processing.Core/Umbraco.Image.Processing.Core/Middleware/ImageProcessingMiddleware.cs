@@ -15,33 +15,22 @@ namespace Umbraco.Image.Processing.Core.Middleware;
 /// Umbraco pipeline, under <see cref="ImageProcessingOptions.RoutePrefix" />) and standalone (into a
 /// bare ASP.NET Core app, with an empty <see cref="ImageProcessingOptions.RoutePrefix" />).
 /// </summary>
-public sealed class ImageProcessingMiddleware
+public sealed class ImageProcessingMiddleware(
+    RequestDelegate next,
+    IOptions<ImageProcessingOptions> options,
+    IOriginalImageSource originalImageSource,
+    IDerivativeImageCache derivativeImageCache,
+    IHmacSigner hmacSigner,
+    IImageProcessor processor,
+    ILogger<ImageProcessingMiddleware> logger)
 {
-    private readonly RequestDelegate _next;
-    private readonly ImageProcessingOptions _options;
-    private readonly IOriginalImageSource _originalImageSource;
-    private readonly IDerivativeImageCache _derivativeImageCache;
-    private readonly IHmacSigner _hmacSigner;
-    private readonly IImageProcessor _processor;
-    private readonly ILogger<ImageProcessingMiddleware> _logger;
-
-    public ImageProcessingMiddleware(
-        RequestDelegate next,
-        IOptions<ImageProcessingOptions> options,
-        IOriginalImageSource originalImageSource,
-        IDerivativeImageCache derivativeImageCache,
-        IHmacSigner hmacSigner,
-        IImageProcessor processor,
-        ILogger<ImageProcessingMiddleware> logger)
-    {
-        _next = next;
-        _options = options.Value;
-        _originalImageSource = originalImageSource;
-        _derivativeImageCache = derivativeImageCache;
-        _hmacSigner = hmacSigner;
-        _processor = processor;
-        _logger = logger;
-    }
+    private readonly RequestDelegate _next = next;
+    private readonly ImageProcessingOptions _options = options.Value;
+    private readonly IOriginalImageSource _originalImageSource = originalImageSource;
+    private readonly IDerivativeImageCache _derivativeImageCache = derivativeImageCache;
+    private readonly IHmacSigner _hmacSigner = hmacSigner;
+    private readonly IImageProcessor _processor = processor;
+    private readonly ILogger<ImageProcessingMiddleware> _logger = logger;
 
     public async Task InvokeAsync(HttpContext context)
     {
