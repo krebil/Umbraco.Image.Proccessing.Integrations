@@ -1,0 +1,81 @@
+name: Publish
+
+# Production-hardening ticket 10: tag-triggered NuGet publish. A maintainer publishes a release by
+# pushing a `v*` git tag against a version already committed to Directory.Build.props — a
+# deliberate, auditable action, not something that happens automatically on every merge.
+#
+# Gate reuse: the `test` job below is a `workflow_call` invocation of
+# .github/workflows/build-and-test.yml (ticket 09) — the exact same restore/build/test steps that
+# gate every PR and push to main, not a duplicated or looser copy. See that file's header comment
+# for the other half of this cross-reference. `pack-and-publish` only starts after `test` succeeds
+# (`needs: test`), and it runs `dotnet pack`/`dotnet restore` fresh rather than reusing `test`'s
+# build output, so no build-artifact-passing plumbing is needed between the two jobs.
+#
+# MANUAL PREREQUISITE: this workflow reads a NUGET_API_KEY repo/environment secret
+# (secrets.NUGET_API_KEY). Nothing in this repo can create that secret — the repo owner must add it
+# under GitHub repo Settings > Secrets and variables > Actions (or an Environment's secrets, if this
+# job is later scoped to a protected environment) before a real `v*` tag push can succeed. Without
+# it, the `dotnet nuget push` step fails with an authentication error, after tests/pack already ran.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # Reuses ticket 09's build+test gate wholesale via workflow_call — see the comment block above and
+  # the matching one in build-and-test.yml. No steps are duplicated here.
+  test:
+    name: Build and test (reused gate)
+    uses: ./.github/workflows/build-and-test.yml
+
+  pack-and-publish:
+    name: Pack and publish to NuGet
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # No continue-on-error anywhere in this job or in the `test` job above: a failure in restore,
+    # pack, or push stops the pipeline at that step and the job (and the whole run) is reported
+    # failed. `needs: test` additionally means this job never even starts unless the full test suite
+    # in the reused workflow passed.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Umbraco.Image.Processing.Integrations.sln
+
+      # Five packable products (Krebil.Umbraco.Image.Processing.*): Core, SkiaSharp, ImageFlow,
+      # UmbracoExtensions, and AzureBlob. AzureBlob was given full packaging identity in ticket 05
+      # (PackageId Krebil.Umbraco.Image.Processing.AzureBlob, PackageLicenseExpression MIT) but was
+      # never wired into a publish pipeline until now — see this ticket's resolution comments for
+      # the scope decision and a flag that CONTEXT.md's "four published NuGet packages" line (and
+      # this ticket's own "four" wording) is now stale and needs a follow-up doc fix.
+      #
+      # Each project pulls its <Version> from the single lockstep value in Directory.Build.props
+      # (ADR-0001) — no per-project version override, so all five packages ship under the same
+      # version number every release.
+      - name: Pack - Core
+        run: dotnet pack src/Umbraco.Image.Processing.Core/Umbraco.Image.Processing.Core/Umbraco.Image.Processing.Core.csproj --no-restore -c Release -o ./nupkgs
+
+      - name: Pack - SkiaSharp
+        run: dotnet pack src/Umbraco.Image.Processing.SkiaSharp/Umbraco.Image.Processing.SkiaSharp/Umbraco.Image.Processing.SkiaSharp.csproj --no-restore -c Release -o ./nupkgs
+
+      - name: Pack - ImageFlow
+        run: dotnet pack src/Umbraco.Image.Processing.ImageFlow/Umbraco.Image.Processing.ImageFlow/Umbraco.Image.Processing.ImageFlow.csproj --no-restore -c Release -o ./nupkgs
+
+      - name: Pack - UmbracoExtensions
+        run: dotnet pack src/Umbraco.Image.Processing.UmbracoExtensions/Umbraco.Image.Processing.UmbracoExtensions/Umbraco.Image.Processing.UmbracoExtensions.csproj --no-restore -c Release -o ./nupkgs
+
+      - name: Pack - AzureBlob
+        run: dotnet pack src/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob.csproj --no-restore -c Release -o ./nupkgs
+
+      # --skip-duplicate makes this safe to re-run: if a workflow re-run (or a retry) hits a version
+      # already published to nuget.org, that individual package push is skipped rather than failing
+      # the job, instead of erroring out and blocking the other four packages in the same run.
+      - name: Push all packages to NuGet
+        run: dotnet nuget push "./nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ secrets.NUGET_API_KEY }}" --skip-duplicate

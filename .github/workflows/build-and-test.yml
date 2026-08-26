@@ -1,19 +1,23 @@
 name: Build and test
 
 # Production-hardening ticket 09: the complete build+test gate for every PR and every push to a
-# long-lived branch. No publish step here — ticket 10's tag-triggered publish workflow reuses this
-# same restore/build/test sequence (copy the steps below into that workflow's job) before it packs
-# and pushes to nuget.org.
+# long-lived branch. No publish step here — ticket 10's tag-triggered publish workflow
+# (.github/workflows/publish.yml) invokes this workflow directly via `workflow_call` as its first
+# job, then packs and pushes to nuget.org only after this job succeeds. This is genuine step reuse,
+# not a copy-pasted second copy of the test steps, so the two workflows' test coverage cannot drift
+# apart — there is only one place these steps are written.
 #
 # Trigger scoping: `pull_request` covers work-in-progress branches, `push` is scoped to `main` only.
 # A branch with an open PR against main does not also re-run on push, because push only fires for
 # main itself (direct pushes/merges), not for the feature branch — so the same commit is not built
-# twice.
+# twice. `workflow_call` has no trigger conditions of its own — it only fires when another workflow
+# in this repo explicitly calls it (see publish.yml); it never causes an extra run on its own.
 on:
   pull_request:
   push:
     branches:
       - main
+  workflow_call:
 
 # Cancel a still-running workflow for the same PR/branch when a new commit supersedes it.
 concurrency:
