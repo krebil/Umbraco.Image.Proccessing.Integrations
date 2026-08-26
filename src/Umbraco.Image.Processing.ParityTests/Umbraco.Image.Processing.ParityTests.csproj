@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+        <PackageReference Include="xunit" Version="2.9.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="SkiaSharp" Version="4.151.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Both processors under test, plus Core for ResolvedImageCommand/CropRectangle/ExifOrientation/ImageColor.
+             SkiaSharp is referenced directly (not just transitively via the SkiaSharp processor project) purely as
+             an independent fixture builder/decoder here, the same convention Umbraco.Image.Processing.ImageFlow.Tests
+             already uses; see that project's ImageFlowImageProcessorTests.cs doc comment for the rationale. -->
+        <ProjectReference Include="..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj" />
+        <ProjectReference Include="..\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp.csproj" />
+        <ProjectReference Include="..\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow.csproj" />
+    </ItemGroup>
+
+</Project>
