@@ -11,11 +11,14 @@ name: Publish
 # (`needs: test`), and it runs `dotnet pack`/`dotnet restore` fresh rather than reusing `test`'s
 # build output, so no build-artifact-passing plumbing is needed between the two jobs.
 #
-# MANUAL PREREQUISITE: this workflow reads a NUGET_API_KEY repo/environment secret
-# (secrets.NUGET_API_KEY). Nothing in this repo can create that secret — the repo owner must add it
-# under GitHub repo Settings > Secrets and variables > Actions (or an Environment's secrets, if this
-# job is later scoped to a protected environment) before a real `v*` tag push can succeed. Without
-# it, the `dotnet nuget push` step fails with an authentication error, after tests/pack already ran.
+# MANUAL PREREQUISITE: this workflow uses NuGet.org Trusted Publishing (OIDC), not a stored API key.
+# Nothing in this repo can create the trusted publishing policy — the repo owner must add it on
+# nuget.org (Account > Trusted Publishing) with Repository Owner "krebil", Repository
+# "Umbraco.Image.Proccessing.Integrations", Workflow File "publish.yml", and Environment
+# "nuget-publish" (must match the `environment:` key below). The GitHub environment "nuget-publish"
+# must also exist under repo Settings > Environments before a real `v*` tag push can succeed.
+# The NUGET_USER secret below holds the nuget.org profile name (not email) used to request the
+# short-lived key; it is not sensitive the way an API key is, but is still kept as a secret.
 on:
   push:
     tags:
@@ -33,6 +36,9 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: nuget-publish
+    permissions:
+      id-token: write
     # No continue-on-error anywhere in this job or in the `test` job above: a failure in restore,
     # pack, or push stops the pipeline at that step and the job (and the whole run) is reported
     # failed. `needs: test` additionally means this job never even starts unless the full test suite
@@ -74,8 +80,16 @@ jobs:
       - name: Pack - AzureBlob
         run: dotnet pack src/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob.csproj --no-restore -c Release -o ./nupkgs
 
+      # Trusted Publishing: exchange this job's GitHub OIDC token for a NuGet.org API key that is
+      # valid for 1 hour. Requested right before the push step so the key doesn't expire unused.
+      - name: NuGet login (OIDC to temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       # --skip-duplicate makes this safe to re-run: if a workflow re-run (or a retry) hits a version
       # already published to nuget.org, that individual package push is skipped rather than failing
       # the job, instead of erroring out and blocking the other four packages in the same run.
       - name: Push all packages to NuGet
-        run: dotnet nuget push "./nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ secrets.NUGET_API_KEY }}" --skip-duplicate
+        run: dotnet nuget push "./nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --skip-duplicate
