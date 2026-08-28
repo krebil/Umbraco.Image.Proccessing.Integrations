@@ -1,7 +1,6 @@
 # Umbraco.Image.Proccessing.Integrations
 
-A pluggable image-processing abstraction for Umbraco. See [`CONTEXT.md`](CONTEXT.md) for the
-domain vocabulary and [`docs/adr`](docs/adr) for the decisions behind the public packages.
+A pluggable image-processing abstraction for Umbraco.
 
 ## Quickstart
 
