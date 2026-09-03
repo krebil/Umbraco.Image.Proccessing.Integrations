@@ -1,5 +1,4 @@
 using ImageProcessingDemo;
-using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
 using Umbraco.Image.Processing.Core.Options;

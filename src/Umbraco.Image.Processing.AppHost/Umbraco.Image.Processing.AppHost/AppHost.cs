@@ -1,4 +1,12 @@
+using System.Runtime.CompilerServices;
+using DotNetEnv;
 using Microsoft.Extensions.Configuration;
+
+string dotEnvPath = Path.Combine(GetProjectDirectory(), ".env");
+if (File.Exists(dotEnvPath))
+{
+    Env.Load(dotEnvPath, new LoadOptions(clobberExistingVars: false));
+}
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -84,4 +92,13 @@ if (!string.IsNullOrEmpty(umbracoDbConnectionStringOverride))
     umbraco.WithEnvironment("ConnectionStrings__umbracoDbDSN", umbracoDbConnectionStringOverride);
 }
 
+var imageProcessorOverride = builder.Configuration["ImageProcessing:Processor"];
+if (!string.IsNullOrEmpty(imageProcessorOverride))
+{
+    umbraco.WithEnvironment("ImageProcessing__Processor", imageProcessorOverride);
+    imageProcessingService.WithEnvironment("ImageProcessing__Processor", imageProcessorOverride);
+}
+
 builder.Build().Run();
+
+static string GetProjectDirectory([CallerFilePath] string sourceFilePath = "") => Path.GetDirectoryName(sourceFilePath)!;
