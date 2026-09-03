@@ -478,8 +478,9 @@ umbraco-package-schema.json
 # Log files
 /umbraco/Logs/
 
-# Media files
-/wwwroot/media/
+# Media files — except the checked-in calibration image the demo page renders
+/wwwroot/media/*
+!/wwwroot/media/sample-tv-calibration.jpeg
 
 # Derivative image cache (ImageProcessing:DerivativeCacheRootPath)
 /App_Data/

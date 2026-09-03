@@ -14,7 +14,7 @@ namespace ImageProcessingDemo;
 internal static class ImageProcessingDemoEndpoints
 {
     private const string RoutePath = "/image-processing-demo";
-    private const string SampleImagePath = "/media/sample.jpg";
+    private const string SampleImagePath = "/media/sample-tv-calibration.jpeg";
 
     public static void MapImageProcessingDemo(this WebApplication app)
     {
