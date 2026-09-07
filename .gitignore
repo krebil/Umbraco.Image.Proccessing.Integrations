@@ -484,3 +484,5 @@ $RECYCLE.BIN/
 CLAUDE.md
 
 docs/agents/
+docs/adr/
+imagesharp-standalone-service-plan.md
