@@ -40,7 +40,14 @@ public sealed class ImageProcessingMiddleware(
             return;
         }
 
-        if (!_hmacSigner.Validate(context.Request.Path, context.Request.Query, context.Request.Query[ImageProcessingCommandNames.HmacToken]))
+        ParsedImageCommand parsed = ImageCommandParser.Parse(context.Request.Query, _options);
+
+        // HMAC only guards against tampering with processing commands (width/height/crop/etc.) — a
+        // bare passthrough request has no commands to tamper with, so it's exempt even when signing
+        // is enabled. This also covers media URLs that never went through the URL generator at all
+        // (raw links, rich-text-embedded media), which never carry a token in the first place.
+        if (parsed.HasProcessingCommands &&
+            !_hmacSigner.Validate(context.Request.Path, context.Request.Query, context.Request.Query[ImageProcessingCommandNames.HmacToken]))
         {
             _logger.LogWarning("Rejected image request {Path} — HMAC token missing or invalid.", context.Request.Path);
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
@@ -56,8 +63,6 @@ public sealed class ImageProcessingMiddleware(
 
         await using (source)
         {
-            ParsedImageCommand parsed = ImageCommandParser.Parse(context.Request.Query, _options);
-
             if (!parsed.HasProcessingCommands)
             {
                 await WriteResponseAsync(context, source, ContentTypeFor(Path.GetExtension(relativePath).TrimStart('.')));

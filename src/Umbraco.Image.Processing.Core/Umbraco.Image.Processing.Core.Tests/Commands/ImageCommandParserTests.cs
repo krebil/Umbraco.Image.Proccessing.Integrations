@@ -84,4 +84,32 @@ public class ImageCommandParserTests
         Assert.Equal(new ImageCropCoordinates(0.1f, 0.1f, 0.1f, 0.1f), result.Crop);
         Assert.True(result.HasProcessingCommands);
     }
+
+    [Fact]
+    public void ModeDefaultsToCropWhenAbsent()
+    {
+        ParsedImageCommand result = ImageCommandParser.Parse(Query(), Options);
+        Assert.Equal(ResizeMode.Crop, result.Mode);
+    }
+
+    [Theory]
+    [InlineData("pad", ResizeMode.Pad)]
+    [InlineData("BOXPAD", ResizeMode.BoxPad)]
+    [InlineData("max", ResizeMode.Max)]
+    [InlineData("min", ResizeMode.Min)]
+    [InlineData("stretch", ResizeMode.Stretch)]
+    [InlineData("manual", ResizeMode.Manual)]
+    [InlineData("crop", ResizeMode.Crop)]
+    public void ParsesModeCaseInsensitively(string raw, ResizeMode expected)
+    {
+        ParsedImageCommand result = ImageCommandParser.Parse(Query((ImageProcessingCommandNames.Mode, raw)), Options);
+        Assert.Equal(expected, result.Mode);
+    }
+
+    [Fact]
+    public void UnrecognizedModeFallsBackToCrop()
+    {
+        ParsedImageCommand result = ImageCommandParser.Parse(Query((ImageProcessingCommandNames.Mode, "not-a-mode")), Options);
+        Assert.Equal(ResizeMode.Crop, result.Mode);
+    }
 }

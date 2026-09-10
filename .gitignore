@@ -486,6 +486,7 @@ CLAUDE.md
 docs/agents/
 docs/adr/
 imagesharp-standalone-service-plan.md
+.scratch/
 
 # Local helper for building/running the Service's reference Docker image — not a maintained
 # artifact, so it isn't checked in; each maintainer's own copy for manual build/publish.

@@ -147,6 +147,26 @@ public sealed class ImageProcessingPipelineTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task UnsignedPassthroughRequest_IsAccepted()
+    {
+        byte[] original = TestImages.FourCornerPngBytes();
+        await WriteSourceAsync("hmac-unsigned-passthrough.png", original);
+
+        await using WebApplicationFactory<Program> factory = CreateFactory();
+        using HttpClient client = factory.CreateClient();
+
+        // No query string at all — no processing commands, so nothing for HMAC to guard against,
+        // even though signing is enabled for this host (matches a raw media link that never went
+        // through the URL generator).
+        using HttpResponseMessage response = await client.GetAsync(
+            SignedRequestUrlBuilder.Unsigned("/media/hmac-unsigned-passthrough.png"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.Equal(original, bytes);
+    }
+
     private async Task WriteSourceAsync(string relativePath, byte[] bytes)
     {
         string fullPath = Path.Combine(_mediaRoot, relativePath);

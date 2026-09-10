@@ -7,7 +7,7 @@
       commit; a matching `v*` git tag triggers the publish workflow.
     -->
     <PropertyGroup>
-        <Version>1.0.0</Version>
+        <Version>2.0.0</Version>
     </PropertyGroup>
 
     <!--

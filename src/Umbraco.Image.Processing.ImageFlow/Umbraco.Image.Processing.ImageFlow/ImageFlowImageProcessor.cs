@@ -44,38 +44,50 @@ public sealed class ImageFlowImageProcessor : IImageProcessor
         using var job = new ImageJob();
         BuildNode node = job.Decode(sourceBytes);
 
-        (int currentWidth, int currentHeight) = (header.Width, header.Height);
-
         if (command.Crop is { } crop)
         {
             (int x, int y, int width, int height) = ClampCrop(crop, header.Width, header.Height);
             node = node.Crop(x, y, x + width, y + height);
-            (currentWidth, currentHeight) = (width, height);
         }
 
         if (command.ExifOrientation is not (ExifOrientation.TopLeft or ExifOrientation.Unknown))
         {
             node = ApplyOrientation(node, command.ExifOrientation);
-            if (ExifOrientationTransform.IsRotated(command.ExifOrientation))
-            {
-                (currentWidth, currentHeight) = (currentHeight, currentWidth);
-            }
         }
 
-        (int targetWidth, int targetHeight) = ComputeTargetSize(currentWidth, currentHeight, command.Width, command.Height);
-        if (targetWidth != currentWidth || targetHeight != currentHeight)
+        if (command.ModeCrop is { } modeCrop)
         {
-            node = node.Constrain(new Constraint(ConstraintMode.Distort, (uint)targetWidth, (uint)targetHeight));
+            // Already computed in post-crop/post-orientation pixel space (see ImageCommandResolver),
+            // so it applies directly with no extra clamping context needed beyond its own bounds.
+            node = node.Crop(modeCrop.X, modeCrop.Y, modeCrop.X + modeCrop.Width, modeCrop.Y + modeCrop.Height);
         }
 
-        if (command.BackgroundColor is { } backgroundColor)
+        int resizeWidth = command.Placement?.Width ?? command.Width;
+        int resizeHeight = command.Placement?.Height ?? command.Height;
+        node = node.Constrain(new Constraint(ConstraintMode.Distort, (uint)resizeWidth, (uint)resizeHeight));
+
+        if (command.Placement is { } placement)
+        {
+            // The Pad/BoxPad resize modes' letterboxing step: place the just-resized image at its
+            // offset within the full Width x Height canvas, filling the remainder with the pad color.
+            // Verified directly against ImageFlowImageProcessorTests' diagnostic cases — ExpandCanvas
+            // itself composites the given color correctly; running the separate BackgroundColor
+            // flatten step (below) afterward on top of it is what corrupted the result, since that
+            // step's own Within_Pad-based reprocessing doesn't just no-op on an already-canvas-sized
+            // image. So this and that step are mutually exclusive, not sequential.
+            int right = command.Width - placement.X - placement.Width;
+            int bottom = command.Height - placement.Y - placement.Height;
+            ImageColor padColor = command.BackgroundColor ?? new ImageColor(0, 0, 0, 0);
+            node = node.ExpandCanvas(placement.X, placement.Y, right, bottom, ToAnyColor(padColor));
+        }
+        else if (command.BackgroundColor is { } backgroundColor)
         {
             // Imageflow has no dedicated "flatten transparency onto a color" node: Region/Crop copy pixels
             // (including alpha) unchanged, and Constrain's canvas_color is documented only for letterboxing
             // added by padding. Empirically (see ImageFlowImageProcessorTests), a pad-mode Constrain still
             // composites the source over its canvas color even when the target size exactly matches the
             // current size (no actual padding), which is what flattens transparent pixels here.
-            var constraint = new Constraint(ConstraintMode.Within_Pad, (uint)targetWidth, (uint)targetHeight).SetCanvasColor(ToAnyColor(backgroundColor));
+            var constraint = new Constraint(ConstraintMode.Within_Pad, (uint)command.Width, (uint)command.Height).SetCanvasColor(ToAnyColor(backgroundColor));
             node = node.Constrain(constraint);
         }
 
@@ -110,28 +122,6 @@ public sealed class ImageFlowImageProcessor : IImageProcessor
         int width = Math.Clamp(crop.Width, 1, sourceWidth - x);
         int height = Math.Clamp(crop.Height, 1, sourceHeight - y);
         return (x, y, width, height);
-    }
-
-    private static (int Width, int Height) ComputeTargetSize(int currentWidth, int currentHeight, int? requestedWidth, int? requestedHeight)
-    {
-        if (requestedWidth is int w && requestedHeight is int h)
-        {
-            return (w, h);
-        }
-
-        if (requestedWidth is int widthOnly)
-        {
-            int height = Math.Max(1, (int)Math.Round(currentHeight * (widthOnly / (double)currentWidth)));
-            return (widthOnly, height);
-        }
-
-        if (requestedHeight is int heightOnly)
-        {
-            int width = Math.Max(1, (int)Math.Round(currentWidth * (heightOnly / (double)currentHeight)));
-            return (width, heightOnly);
-        }
-
-        return (currentWidth, currentHeight);
     }
 
     private static AnyColor ToAnyColor(ImageColor color) => AnyColor.Srgb(new SrgbColor(color.R, color.G, color.B, color.A));

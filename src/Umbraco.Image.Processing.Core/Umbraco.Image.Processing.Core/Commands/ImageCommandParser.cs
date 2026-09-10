@@ -16,6 +16,13 @@ public static class ImageCommandParser
         int? width = ParseClampedDimension(query, ImageProcessingCommandNames.Width, options.MaxWidth);
         int? height = ParseClampedDimension(query, ImageProcessingCommandNames.Height, options.MaxHeight);
 
+        ResizeMode mode = ResizeMode.Crop;
+        if (query.TryGetValue(ImageProcessingCommandNames.Mode, out var modeValue) &&
+            Enum.TryParse(modeValue.ToString(), ignoreCase: true, out ResizeMode parsedMode))
+        {
+            mode = parsedMode;
+        }
+
         string? format = null;
         if (query.TryGetValue(ImageProcessingCommandNames.Format, out var formatValue))
         {
@@ -58,6 +65,7 @@ public static class ImageCommandParser
         {
             Width = width,
             Height = height,
+            Mode = mode,
             Format = format,
             Quality = quality,
             BackgroundColor = backgroundColor,

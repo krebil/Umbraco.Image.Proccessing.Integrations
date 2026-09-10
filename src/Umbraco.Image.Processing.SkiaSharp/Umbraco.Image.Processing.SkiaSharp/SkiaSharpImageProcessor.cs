@@ -44,10 +44,23 @@ public sealed class SkiaSharpImageProcessor : IImageProcessor
                 owned.Add(current);
             }
 
-            (int targetWidth, int targetHeight) = ComputeTargetSize(current.Width, current.Height, command.Width, command.Height);
-            if (targetWidth != current.Width || targetHeight != current.Height)
+            if (command.ModeCrop is { } modeCrop)
             {
-                current = Resize(current, targetWidth, targetHeight);
+                current = Crop(current, modeCrop);
+                owned.Add(current);
+            }
+
+            int resizeWidth = command.Placement?.Width ?? command.Width;
+            int resizeHeight = command.Placement?.Height ?? command.Height;
+            if (resizeWidth != current.Width || resizeHeight != current.Height)
+            {
+                current = Resize(current, resizeWidth, resizeHeight);
+                owned.Add(current);
+            }
+
+            if (command.Placement is { } placement)
+            {
+                current = Pad(current, command.Width, command.Height, placement, command.BackgroundColor);
                 owned.Add(current);
             }
 
@@ -119,26 +132,20 @@ public sealed class SkiaSharpImageProcessor : IImageProcessor
         return oriented;
     }
 
-    private static (int Width, int Height) ComputeTargetSize(int currentWidth, int currentHeight, int? requestedWidth, int? requestedHeight)
+    /// <summary>
+    /// Places <paramref name="source" /> at <paramref name="placement" />'s offset within a
+    /// <paramref name="canvasWidth" /> x <paramref name="canvasHeight" /> canvas, filling the
+    /// remainder with <paramref name="backgroundColor" /> (transparent when unset) — the Pad/BoxPad
+    /// resize modes' letterboxing step.
+    /// </summary>
+    private static SKBitmap Pad(SKBitmap source, int canvasWidth, int canvasHeight, CropRectangle placement, ImageColor? backgroundColor)
     {
-        if (requestedWidth is int w && requestedHeight is int h)
-        {
-            return (w, h);
-        }
-
-        if (requestedWidth is int widthOnly)
-        {
-            int height = Math.Max(1, (int)Math.Round(currentHeight * (widthOnly / (double)currentWidth)));
-            return (widthOnly, height);
-        }
-
-        if (requestedHeight is int heightOnly)
-        {
-            int width = Math.Max(1, (int)Math.Round(currentWidth * (heightOnly / (double)currentHeight)));
-            return (width, heightOnly);
-        }
-
-        return (currentWidth, currentHeight);
+        var canvas = new SKBitmap(canvasWidth, canvasHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using var skCanvas = new SKCanvas(canvas);
+        ImageColor fill = backgroundColor ?? new ImageColor(0, 0, 0, 0);
+        skCanvas.Clear(new SKColor(fill.R, fill.G, fill.B, fill.A));
+        skCanvas.DrawBitmap(source, placement.X, placement.Y, SKSamplingOptions.Default);
+        return canvas;
     }
 
     private static SKBitmap Resize(SKBitmap source, int width, int height)

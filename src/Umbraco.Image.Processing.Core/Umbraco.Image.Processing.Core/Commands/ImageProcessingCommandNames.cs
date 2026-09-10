@@ -9,6 +9,7 @@ public static class ImageProcessingCommandNames
 {
     public const string Width = "width";
     public const string Height = "height";
+    public const string Mode = "rmode";
     public const string Format = "format";
     public const string Quality = "quality";
     public const string BackgroundColor = "bgcolor";

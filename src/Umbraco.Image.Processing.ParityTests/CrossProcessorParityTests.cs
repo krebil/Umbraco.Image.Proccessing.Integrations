@@ -113,26 +113,73 @@ public class CrossProcessorParityTests(ITestOutputHelper output)
             "BackgroundColor_FlattensTransparentSourceToSolidColor",
             Command(backgroundColor: new ImageColor(30, 30, 30, 255)),
             SourceKind.Transparent);
+
+        // Default mode (Crop): a square target from the non-square (2:3) source must center-crop to
+        // fill, not squish — the exact bug this mode support was added to fix.
+        yield return new ParityCase(
+            "ResizeMode_Crop_SquareTargetFromNonSquareSource",
+            Command(width: 30, height: 30));
+
+        yield return new ParityCase(
+            "ResizeMode_Stretch_DistortsToMismatchedAspect",
+            Command(width: 60, height: 20, mode: ResizeMode.Stretch));
+
+        yield return new ParityCase(
+            "ResizeMode_Pad_LettersboxesToMismatchedAspect",
+            Command(width: 80, height: 40, mode: ResizeMode.Pad, backgroundColor: new ImageColor(10, 10, 10, 255)));
+
+        yield return new ParityCase(
+            "ResizeMode_BoxPad_CentersSmallerSourceUnscaled",
+            Command(width: 100, height: 120, mode: ResizeMode.BoxPad, backgroundColor: new ImageColor(10, 10, 10, 255)));
+
+        yield return new ParityCase(
+            "ResizeMode_Max_FitsWithinPreservingAspect",
+            Command(width: 100, height: 100, mode: ResizeMode.Max));
+
+        yield return new ParityCase(
+            "ResizeMode_Min_DownscalesPreservingAspect",
+            Command(width: 10, height: 10, mode: ResizeMode.Min));
     }
 
+    /// <summary>
+    /// Mirrors <c>ImageCommandResolver.Resolve</c>'s own width/height/mode resolution against
+    /// <see cref="ParityFixtures" />'s known dimensions, rather than hand-rolling an approximation
+    /// here — this suite's job is proving both processors agree on a given
+    /// <see cref="ResolvedImageCommand" />, not re-verifying Core's resolution math (that's
+    /// <c>ResizeCalculatorTests</c>' job), so it must feed processors exactly what Core would have.
+    /// </summary>
     private static ResolvedImageCommand Command(
         int? width = null,
         int? height = null,
+        ResizeMode mode = ResizeMode.Crop,
         string format = "png",
         int quality = 100,
         ImageColor? backgroundColor = null,
         CropRectangle? crop = null,
-        ushort exifOrientation = ExifOrientation.TopLeft) =>
-        new()
+        ushort exifOrientation = ExifOrientation.TopLeft)
+    {
+        int workingWidth = crop?.Width ?? ParityFixtures.Width;
+        int workingHeight = crop?.Height ?? ParityFixtures.Height;
+        if (ExifOrientationTransform.IsRotated(exifOrientation))
         {
-            Width = width,
-            Height = height,
+            (workingWidth, workingHeight) = (workingHeight, workingWidth);
+        }
+
+        ResizeResolution resize = ResizeCalculator.Resolve(workingWidth, workingHeight, width, height, mode);
+
+        return new ResolvedImageCommand
+        {
+            Width = resize.Width,
+            Height = resize.Height,
             Format = format,
             Quality = quality,
             BackgroundColor = backgroundColor,
             Crop = crop,
+            ModeCrop = resize.Crop,
+            Placement = resize.Placement,
             ExifOrientation = exifOrientation,
         };
+    }
 
     [Theory]
     [MemberData(nameof(CaseNames))]

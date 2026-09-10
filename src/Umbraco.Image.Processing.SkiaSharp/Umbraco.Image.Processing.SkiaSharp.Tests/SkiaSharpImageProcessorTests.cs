@@ -33,13 +33,20 @@ public class SkiaSharpImageProcessorTests
         return stream;
     }
 
+    /// <summary>
+    /// Width/height have no default: a resolved command always carries the concrete final size
+    /// (sizing math is Core's job, not the processor's), so every call site must pass whatever size
+    /// the source will actually be at that point in its own pipeline (post-crop, if any).
+    /// </summary>
     private static ResolvedImageCommand Command(
-        int? width = null,
-        int? height = null,
+        int width,
+        int height,
         string format = "png",
         int quality = 100,
         ImageColor? backgroundColor = null,
         CropRectangle? crop = null,
+        CropRectangle? modeCrop = null,
+        CropRectangle? placement = null,
         ushort exifOrientation = ExifOrientation.TopLeft) =>
         new()
         {
@@ -49,6 +56,8 @@ public class SkiaSharpImageProcessorTests
             Quality = quality,
             BackgroundColor = backgroundColor,
             Crop = crop,
+            ModeCrop = modeCrop,
+            Placement = placement,
             ExifOrientation = exifOrientation,
         };
 
@@ -65,7 +74,7 @@ public class SkiaSharpImageProcessorTests
         var destination = new MemoryStream();
         var processor = new SkiaSharpImageProcessor();
 
-        await processor.ProcessAsync(source, destination, Command());
+        await processor.ProcessAsync(source, destination, Command(width: 2, height: 2));
 
         using SKBitmap result = Decode(destination);
         Assert.Equal(2, result.Width);
@@ -91,17 +100,43 @@ public class SkiaSharpImageProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_WidthOnly_PreservesAspectRatio()
+    public async Task ProcessAsync_ModeCrop_CropsBeforeResize()
     {
         using MemoryStream source = FourCornerPng();
         var destination = new MemoryStream();
         var processor = new SkiaSharpImageProcessor();
 
-        await processor.ProcessAsync(source, destination, Command(width: 8));
+        // A resize-mode Crop rectangle (post-orientation space) selecting only the left column,
+        // resized to a wide target — distinct from the explicit `cc`-driven Crop field.
+        await processor.ProcessAsync(source, destination, Command(width: 4, height: 2, modeCrop: new CropRectangle(0, 0, 1, 2)));
 
         using SKBitmap result = Decode(destination);
-        Assert.Equal(8, result.Width);
-        Assert.Equal(8, result.Height); // source is square (2x2), so aspect-preserving height matches width
+        Assert.Equal(4, result.Width);
+        Assert.Equal(2, result.Height);
+        Assert.Equal(Red, result.GetPixel(0, 0));
+        Assert.Equal(Blue, result.GetPixel(0, 1));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_Placement_PadsResizedImageOntoCanvas()
+    {
+        using MemoryStream source = FourCornerPng();
+        var destination = new MemoryStream();
+        var processor = new SkiaSharpImageProcessor();
+
+        // Pad-mode shape: resize to a 2x2 square (Placement's own size), centered in a 4x2 canvas
+        // (Width/Height), background-filled either side.
+        await processor.ProcessAsync(
+            source,
+            destination,
+            Command(width: 4, height: 2, backgroundColor: new ImageColor(0, 0, 255, 255), placement: new CropRectangle(1, 0, 2, 2)));
+
+        using SKBitmap result = Decode(destination);
+        Assert.Equal(4, result.Width);
+        Assert.Equal(2, result.Height);
+        Assert.Equal(new SKColor(0, 0, 255, 255), result.GetPixel(0, 0)); // left gutter
+        Assert.Equal(new SKColor(0, 0, 255, 255), result.GetPixel(3, 0)); // right gutter
+        Assert.Equal(Red, result.GetPixel(1, 0)); // placed image, top-left corner
     }
 
     [Fact]
@@ -112,7 +147,7 @@ public class SkiaSharpImageProcessorTests
         var processor = new SkiaSharpImageProcessor();
 
         // Top-right 1x1 quadrant only.
-        await processor.ProcessAsync(source, destination, Command(crop: new CropRectangle(1, 0, 1, 1)));
+        await processor.ProcessAsync(source, destination, Command(width: 1, height: 1, crop: new CropRectangle(1, 0, 1, 1)));
 
         using SKBitmap result = Decode(destination);
         Assert.Equal(1, result.Width);
@@ -127,7 +162,7 @@ public class SkiaSharpImageProcessorTests
         var destination = new MemoryStream();
         var processor = new SkiaSharpImageProcessor();
 
-        await processor.ProcessAsync(source, destination, Command(exifOrientation: ExifOrientation.RightTop));
+        await processor.ProcessAsync(source, destination, Command(width: 2, height: 2, exifOrientation: ExifOrientation.RightTop));
 
         using SKBitmap result = Decode(destination);
         Assert.Equal(2, result.Width);
@@ -144,7 +179,7 @@ public class SkiaSharpImageProcessorTests
         var destination = new MemoryStream();
         var processor = new SkiaSharpImageProcessor();
 
-        await processor.ProcessAsync(source, destination, Command(exifOrientation: ExifOrientation.LeftTop));
+        await processor.ProcessAsync(source, destination, Command(width: 2, height: 2, exifOrientation: ExifOrientation.LeftTop));
 
         using SKBitmap result = Decode(destination);
         // Transpose across the top-left/bottom-right diagonal: corners on the diagonal are fixed,
@@ -162,7 +197,7 @@ public class SkiaSharpImageProcessorTests
         var destination = new MemoryStream();
         var processor = new SkiaSharpImageProcessor();
 
-        await processor.ProcessAsync(source, destination, Command(exifOrientation: ExifOrientation.BottomRight));
+        await processor.ProcessAsync(source, destination, Command(width: 2, height: 2, exifOrientation: ExifOrientation.BottomRight));
 
         using SKBitmap result = Decode(destination);
         Assert.Equal(Yellow, result.GetPixel(0, 0));
@@ -185,7 +220,7 @@ public class SkiaSharpImageProcessorTests
         var destination = new MemoryStream();
         var processor = new SkiaSharpImageProcessor();
 
-        await processor.ProcessAsync(source, destination, Command(backgroundColor: new ImageColor(255, 0, 0, 255)));
+        await processor.ProcessAsync(source, destination, Command(width: 1, height: 1, backgroundColor: new ImageColor(255, 0, 0, 255)));
 
         using SKBitmap result = Decode(destination);
         Assert.Equal(new SKColor(255, 0, 0, 255), result.GetPixel(0, 0));
@@ -201,7 +236,7 @@ public class SkiaSharpImageProcessorTests
         var processor = new SkiaSharpImageProcessor();
 
         await Assert.ThrowsAsync<NotSupportedException>(
-            () => processor.ProcessAsync(source, destination, Command(format: format)));
+            () => processor.ProcessAsync(source, destination, Command(width: 2, height: 2, format: format)));
     }
 
     [Theory]
@@ -215,7 +250,7 @@ public class SkiaSharpImageProcessorTests
         var destination = new MemoryStream();
         var processor = new SkiaSharpImageProcessor();
 
-        await processor.ProcessAsync(source, destination, Command(format: format, quality: 80));
+        await processor.ProcessAsync(source, destination, Command(width: 2, height: 2, format: format, quality: 80));
 
         Assert.True(destination.Length > 0);
     }

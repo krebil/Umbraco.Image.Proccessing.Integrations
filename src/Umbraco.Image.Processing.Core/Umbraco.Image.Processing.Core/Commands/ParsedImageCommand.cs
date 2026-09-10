@@ -11,6 +11,9 @@ public sealed record ParsedImageCommand
 
     public int? Height { get; init; }
 
+    /// <summary>How Width/Height combine when both are set. Defaults to <see cref="ResizeMode.Crop" />, matching ImageSharp's own default.</summary>
+    public ResizeMode Mode { get; init; } = ResizeMode.Crop;
+
     public string? Format { get; init; }
 
     public int? Quality { get; init; }
