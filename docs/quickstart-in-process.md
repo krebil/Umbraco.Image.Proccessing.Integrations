@@ -11,17 +11,19 @@ For a separately deployed image service instead, see
 
 ## 1. Add the packages
 
-The processor packages aren't published to NuGet yet (this is a proof-of-concept
-abstraction, not a released library), so reference the projects directly:
-
 ```bash
-dotnet add reference path/to/Umbraco.Image.Processing.Core.csproj
-dotnet add reference path/to/Umbraco.Image.Processing.SkiaSharp.csproj
+dotnet add package Krebil.Umbraco.Image.Processing.Core
+dotnet add package Krebil.Umbraco.Image.Processing.SkiaSharp
+dotnet add package Krebil.Umbraco.Image.Processing.UmbracoExtensions
 ```
 
-(Swap the last line for `Umbraco.Image.Processing.ImageFlow.csproj` if you're
-starting with ImageFlow. Reference both if you want the config-only swap
-described in step 4, the way this repo's own sample site does it.)
+(Swap the second line for `Krebil.Umbraco.Image.Processing.ImageFlow` if
+you're starting with ImageFlow. Install both processor packages if you want
+the config-only swap described in step 5, the way this repo's own sample
+site does it. `UmbracoExtensions` is required for in-process mode — it's
+what implements Umbraco's own `IImageUrlGenerator`/`IImageDimensionExtractor`
+against this package's command parsing, storage, and HMAC signing; see step
+3.)
 
 ## 2. Remove the stock ImageSharp package
 
@@ -36,6 +38,7 @@ not shipping an imaging pipeline you don't use.
 ```csharp
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.SkiaSharp; // or .ImageFlow
+using Umbraco.Image.Processing.UmbracoExtensions.DependencyInjection;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -45,14 +48,16 @@ builder.CreateUmbracoBuilder()
     .AddComposers()
     .Build();
 
-// Register AFTER CreateUmbracoBuilder(), not before: Umbraco's own imaging
-// package registers a default IImageUrlGenerator/IImageDimensionExtractor via a
-// plain Add, and DI's last-one-wins resolution picks whichever registration
-// runs last regardless of call order. AddImageProcessing() replaces Umbraco's
-// registrations outright, so it must run after CreateUmbracoBuilder() to win.
+// AddUmbracoImageProcessing() uses Replace, not TryAdd, for Umbraco's own
+// IImageUrlGenerator/IImageDimensionExtractor, so it wins regardless of
+// whether it runs before or after CreateUmbracoBuilder(). Without this call,
+// Umbraco's own Umbraco.Cms.Imaging.ImageSharp registrations stay in charge —
+// AddImageProcessing() alone only registers the processor-agnostic pieces
+// (options, HMAC signing, storage) and never touches Umbraco's interfaces.
 builder.Services
     .AddImageProcessing(options => builder.Configuration.GetSection("ImageProcessing").Bind(options))
-    .UseSkiaSharp(); // or .UseImageFlow()
+    .UseSkiaSharp() // or .UseImageFlow()
+    .AddUmbracoImageProcessing();
 
 WebApplication app = builder.Build();
 
@@ -107,23 +112,23 @@ for the setup; everything there applies here unchanged.
 ## 5. The drop-in story: swapping processors
 
 Nothing above names a processor except the one `.UseSkiaSharp()` /
-`.UseImageFlow()` call in step 3 and the package reference it depends on.
-Compare all three:
+`.UseImageFlow()` call in step 3 and the package it depends on. Compare all
+three:
 
 ```csharp
 // Stock Umbraco:
 services.AddUmbracoImageSharp();
 
 // This package, SkiaSharp:
-services.AddImageProcessing(configure).UseSkiaSharp();
+services.AddImageProcessing(configure).UseSkiaSharp().AddUmbracoImageProcessing();
 
 // This package, ImageFlow:
-services.AddImageProcessing(configure).UseImageFlow();
+services.AddImageProcessing(configure).UseImageFlow().AddUmbracoImageProcessing();
 ```
 
 Everything else in `Program.cs` (registration order, middleware mount point,
 options binding) stays identical. Swapping processors is a one-line change
-plus swapping which project you reference.
+plus swapping which package you install.
 
 Format support differs by processor, though. SkiaSharp's encoder only handles
 `jpg`/`jpeg`/`png`/`webp`, so a `format=gif` or `format=bmp` request throws.

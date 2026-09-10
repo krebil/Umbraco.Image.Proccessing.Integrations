@@ -2,8 +2,12 @@ using Umbraco.Image.Processing.AzureBlob.DependencyInjection;
 using Umbraco.Image.Processing.AzureBlob.Options;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
+#if INCLUDE_IMAGEFLOW
 using Umbraco.Image.Processing.ImageFlow;
+#endif
+#if INCLUDE_SKIASHARP
 using Umbraco.Image.Processing.SkiaSharp;
+#endif
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -14,11 +18,24 @@ var storageMode = imageProcessingSection.GetValue("Storage:Mode", ImageStorageMo
 
 IImageProcessingBuilder imageProcessingBuilder = builder.Services.AddImageProcessing(options => imageProcessingSection.Bind(options));
 
-_ = processor switch
+switch (processor)
 {
-    ImageProcessorKind.ImageFlow => imageProcessingBuilder.UseImageFlow(),
-    _ => imageProcessingBuilder.UseSkiaSharp(),
-};
+#if INCLUDE_SKIASHARP
+    case ImageProcessorKind.SkiaSharp:
+        imageProcessingBuilder.UseSkiaSharp();
+        break;
+#endif
+#if INCLUDE_IMAGEFLOW
+    case ImageProcessorKind.ImageFlow:
+        imageProcessingBuilder.UseImageFlow();
+        break;
+#endif
+    default:
+        throw new InvalidOperationException(
+            $"ImageProcessing:Processor is \"{processor}\", but this build was compiled without that " +
+            "processor (see the ImageProcessor MSBuild property in the .csproj). Rebuild with a matching " +
+            "ImageProcessor value, or configure a processor this build includes.");
+}
 
 if (storageMode == ImageStorageMode.AzureBlob)
 {

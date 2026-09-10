@@ -8,10 +8,23 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
+    <!--
+      ImageProcessor selects which processor(s) get compiled in: "SkiaSharp", "ImageFlow", or the
+      default "All" (today's behavior — both, switched at runtime via ImageProcessing:Processor).
+      Pass -p:ImageProcessor=SkiaSharp (or ImageFlow) to dotnet build/publish, or the matching
+      Dockerfile ARG, for a smaller single-processor binary without a second project/service to
+      maintain — see Program.cs for the corresponding #if gating.
+    -->
+    <PropertyGroup>
+        <ImageProcessor Condition="'$(ImageProcessor)' == ''">All</ImageProcessor>
+        <DefineConstants Condition="'$(ImageProcessor)' != 'ImageFlow'">$(DefineConstants);INCLUDE_SKIASHARP</DefineConstants>
+        <DefineConstants Condition="'$(ImageProcessor)' != 'SkiaSharp'">$(DefineConstants);INCLUDE_IMAGEFLOW</DefineConstants>
+    </PropertyGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj" />
-        <ProjectReference Include="..\..\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp.csproj" />
-        <ProjectReference Include="..\..\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow.csproj" />
+        <ProjectReference Include="..\..\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp.csproj" Condition="'$(ImageProcessor)' != 'ImageFlow'" />
+        <ProjectReference Include="..\..\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow\Umbraco.Image.Processing.ImageFlow.csproj" Condition="'$(ImageProcessor)' != 'SkiaSharp'" />
         <ProjectReference Include="..\..\Umbraco.Image.Processing.AzureBlob\Umbraco.Image.Processing.AzureBlob\Umbraco.Image.Processing.AzureBlob.csproj" />
     </ItemGroup>
 

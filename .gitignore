@@ -486,3 +486,9 @@ CLAUDE.md
 docs/agents/
 docs/adr/
 imagesharp-standalone-service-plan.md
+
+# Local helper for building/running the Service's reference Docker image — not a maintained
+# artifact, so it isn't checked in; each maintainer's own copy for manual build/publish.
+docker-compose.yml
+
+src/Umbraco.Image.Processing.Service/Umbraco.Image.Processing.Service/Dockerfile

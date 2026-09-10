@@ -12,14 +12,14 @@ For running in the same process as Umbraco instead, see
 ## 1. Build the service
 
 Create a bare ASP.NET Core project with no Umbraco reference at all. Add
-references to Core and one processor project (see the in-process quickstart's
-note on `dotnet add reference` vs `dotnet add package`: these projects aren't
-published to NuGet yet):
+Core and one processor package. `UmbracoExtensions` isn't needed here — it
+only implements Umbraco's own `IImageUrlGenerator`/`IImageDimensionExtractor`,
+irrelevant to a standalone service that has no Umbraco dependency at all:
 
 ```bash
 dotnet new web -n MyCompany.ImageService
-dotnet add reference path/to/Umbraco.Image.Processing.Core.csproj
-dotnet add reference path/to/Umbraco.Image.Processing.SkiaSharp.csproj
+dotnet add package Krebil.Umbraco.Image.Processing.Core
+dotnet add package Krebil.Umbraco.Image.Processing.SkiaSharp
 ```
 
 `Program.cs` stays small: Core's middleware *is* the whole app.
