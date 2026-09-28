@@ -492,4 +492,4 @@ imagesharp-standalone-service-plan.md
 # artifact, so it isn't checked in; each maintainer's own copy for manual build/publish.
 docker-compose.yml
 
-src/Umbraco.Image.Processing.Service/Umbraco.Image.Processing.Service/Dockerfile
+scripts/publish-docker-image.sh
