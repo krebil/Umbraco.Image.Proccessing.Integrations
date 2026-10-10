@@ -9,10 +9,10 @@ namespace ImageProcessingDemo;
 /// <c>HttpOriginalImageSource</c> — for deployments where Umbraco and the Service are separate
 /// processes with no shared disk/volume and Umbraco's media isn't Blob-backed either
 /// (production-hardening ticket 12). Mounted at <see cref="HttpOriginalImageSource.OriginRoutePrefix" />,
-/// deliberately outside <c>ImageProcessing:RoutePrefix</c> — the Standalone-mode redirect middleware
-/// below only matches requests under that prefix, so this route never enters its matching logic and
+/// deliberately outside every <c>ImageProcessing:Sources</c> route prefix — the Standalone-mode redirect
+/// middleware below only matches requests under those prefixes, so this route never enters its matching logic and
 /// can't loop a Service request straight back to itself. Resolves the same <see cref="IOriginalImageSource" />
-/// (local disk or Blob, depending on <c>Storage:Mode</c>) and <see cref="IHmacSigner" /> that
+/// (local disk or Blob, depending on <c>MediaStorage:Mode</c>) and <see cref="IHmacSigner" /> that
 /// <c>AddImageProcessing()</c>/<c>AddUmbracoImageProcessing()</c> above already register — no separate
 /// Umbraco media-API access needed, and no bulk-download exposure since the HMAC guard is the same one
 /// the rest of this app's image requests are validated against.

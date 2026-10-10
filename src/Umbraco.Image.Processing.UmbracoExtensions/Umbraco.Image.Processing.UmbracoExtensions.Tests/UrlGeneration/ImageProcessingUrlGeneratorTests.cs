@@ -141,4 +141,27 @@ public class ImageProcessingUrlGeneratorTests
 
         Assert.Equal("/media/foo.jpg?width=300", url);
     }
+
+    [Theory]
+    [InlineData("/media/foo.jpg", "http://images.example/media/foo.jpg?width=300")]
+    [InlineData("/-/archive/0123456789abcdef0123456789abcdef/assets/0123456789abcdef0123456789abcdef.png", "http://images.example/-/archive/0123456789abcdef0123456789abcdef/assets/0123456789abcdef0123456789abcdef.png?width=300")]
+    [InlineData("/-/archive/0123456789abcdef0123456789abcdef/pages/foo.png", "/-/archive/0123456789abcdef0123456789abcdef/pages/foo.png?width=300")]
+    [InlineData("/uploads/foo.jpg", "/uploads/foo.jpg?width=300")]
+    public void PrefixesExternalBaseUrlOnlyForPathsAConfiguredSourceServes(string imageUrl, string expected)
+    {
+        var options = MicrosoftOptions.Create(new ImageProcessingOptions
+        {
+            ExternalBaseUrl = "http://images.example",
+            Sources =
+            [
+                new ImageSourceOptions { RoutePrefix = "/media" },
+                new ImageSourceOptions { RoutePrefix = "/-/archive", PathPattern = @"^[0-9a-f]{32}/assets/[0-9a-f]{32}\.[a-z0-9]{1,10}$" },
+            ],
+        });
+        var generator = new ImageProcessingUrlGenerator(options, new HmacSigner(options));
+
+        string? url = generator.GetImageUrl(new ImageUrlGenerationOptions(imageUrl) { Width = 300 });
+
+        Assert.Equal(expected, url);
+    }
 }

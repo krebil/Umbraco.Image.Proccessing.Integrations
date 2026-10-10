@@ -7,6 +7,7 @@ using Umbraco.Cms.Core.Media;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Image.Processing.Core.Commands;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 
 namespace Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
@@ -20,6 +21,7 @@ public sealed class ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions>
 {
     private readonly ImageProcessingOptions _options = options.Value;
     private readonly IHmacSigner _hmacSigner = hmacSigner;
+    private readonly ImageSourceMatcher _sourceMatcher = new(options.Value);
 
     public IEnumerable<string> SupportedImageFileTypes => _options.SupportedRequestExtensions.Select(e => e.TrimStart('.'));
 
@@ -85,12 +87,19 @@ public sealed class ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions>
             }
         }
 
-        if (!string.IsNullOrEmpty(_options.ExternalBaseUrl))
+        // Only paths the service actually serves go to it; anything else stays relative to this app.
+        if (!string.IsNullOrEmpty(_options.ExternalBaseUrl) && IsServedBySource(options.ImageUrl))
         {
             url = _options.ExternalBaseUrl.TrimEnd('/') + url;
         }
 
         return url;
+    }
+
+    private bool IsServedBySource(string imageUrl)
+    {
+        string path = GetPathOnly(imageUrl);
+        return path.StartsWith('/') && _sourceMatcher.TryMatch(new PathString(path), out _);
     }
 
     private static string GetPathOnly(string imageUrl) => imageUrl.Split('?', 2)[0];

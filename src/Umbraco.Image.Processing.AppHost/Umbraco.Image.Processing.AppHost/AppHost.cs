@@ -27,14 +27,14 @@ IResourceBuilder<ProjectResource> umbraco = builder.AddProject<Projects.Umbraco>
     .WaitFor(imageProcessingService);
 
 // Reverse direction of the reference above: the Service needs Umbraco's own internal endpoint to
-// fetch raw originals over HTTP when Storage:Mode=HttpProxy (production-hardening ticket 12). Always
+// fetch raw originals over HTTP when its /media source's Storage:Mode is HttpProxy (production-hardening ticket 12). Always
 // set, not conditional — mirrors ImageProcessing__Standalone__BaseUrl's unconditional wiring above:
-// cheap to wire, and harmless when the Service isn't configured to read it (Storage:Mode defaults to
+// cheap to wire, and harmless when the source isn't configured to read it (its Storage:Mode defaults to
 // LocalDisk). Deliberately not paired with a `.WaitFor(umbraco)` on imageProcessingService: umbraco
 // already WaitFor(imageProcessingService) above, so adding the reverse would deadlock startup — each
 // side would wait on the other. Not needed anyway: endpoint references resolve to an address as soon
 // as Aspire allocates the port, they don't require the referenced resource to already be running.
-imageProcessingService.WithEnvironment("ImageProcessing__Proxy__UmbracoBaseUrl", umbraco.GetEndpoint("http"));
+imageProcessingService.WithEnvironment("ImageProcessing__Sources__0__Storage__HttpProxy__UmbracoBaseUrl", umbraco.GetEndpoint("http"));
 
 // Forwarded from the AppHost's own config to Umbraco's env, not left to appsettings.json's default
 // ("InProcess"): needed so a consumer of this AppHost (e.g. the E2E test project driving it via
@@ -51,7 +51,7 @@ string storageMode = builder.Configuration.GetValue("Storage:Mode", "LocalDisk")
 // AppHost via DistributedApplicationTestingBuilder) to point both apps' media storage at the same
 // Azurite-backed container instead of local disk (production-hardening ticket 11). Local disk
 // (LocalDiskOriginalImageSource + Umbraco's own physical media file system) needs no wiring here —
-// they already share a filesystem via each app's own OriginalsRootPath/default media path config.
+// they already share a filesystem via the Service's /media source RootPath and Umbraco's default media path.
 if (storageMode == "AzureBlob")
 {
     const string mediaContainerName = "media";
@@ -63,13 +63,14 @@ if (storageMode == "AzureBlob")
     // Aspire provision it against Azurite at startup, the dev/test equivalent of that IaC step.
     storage.AddBlobContainer("media-container", mediaContainerName);
 
+    // Source 0 is the Service's /media source (its appsettings.json); only its storage changes here.
     imageProcessingService
-        .WithEnvironment("ImageProcessing__Storage__Mode", "AzureBlob")
-        .WithEnvironment("ImageProcessing__Storage__AzureBlob__ContainerName", mediaContainerName)
-        .WithEnvironment("ImageProcessing__Storage__AzureBlob__ConnectionString", blobs);
+        .WithEnvironment("ImageProcessing__Sources__0__Storage__Mode", "AzureBlob")
+        .WithEnvironment("ImageProcessing__Sources__0__Storage__AzureBlob__ContainerName", mediaContainerName)
+        .WithEnvironment("ImageProcessing__Sources__0__Storage__AzureBlob__ConnectionString", blobs);
 
     umbraco
-        .WithEnvironment("ImageProcessing__Storage__Mode", "AzureBlob")
+        .WithEnvironment("MediaStorage__Mode", "AzureBlob")
         .WithEnvironment("Umbraco__Storage__AzureBlob__Media__ContainerName", mediaContainerName)
         .WithEnvironment("Umbraco__Storage__AzureBlob__Media__ConnectionString", blobs);
 }
@@ -77,9 +78,9 @@ else if (storageMode == "HttpProxy")
 {
     // Umbraco's own media storage stays local disk — this mode only flips the Service's own
     // IOriginalImageSource to HttpOriginalImageSource (production-hardening ticket 12); Umbraco needs
-    // no storage-side changes at all, and ImageProcessing__Proxy__UmbracoBaseUrl is already wired
+    // no storage-side changes at all, and the source's HttpProxy UmbracoBaseUrl is already wired
     // unconditionally above.
-    imageProcessingService.WithEnvironment("ImageProcessing__Storage__Mode", "HttpProxy");
+    imageProcessingService.WithEnvironment("ImageProcessing__Sources__0__Storage__Mode", "HttpProxy");
 }
 
 // Opt-in database override: absent for normal `dotnet run` (Umbraco keeps its own checked-in SQLite

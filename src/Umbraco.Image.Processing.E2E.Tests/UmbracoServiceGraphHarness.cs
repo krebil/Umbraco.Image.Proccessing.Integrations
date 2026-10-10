@@ -4,6 +4,7 @@ using Aspire.Hosting.Testing;
 using Microsoft.AspNetCore.Http;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
 using Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
@@ -121,8 +122,8 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
         var options = Microsoft.Extensions.Options.Options.Create(new ImageProcessingOptions { HmacSecretKey = Convert.FromBase64String(HmacSecretKeyBase64) });
         var signer = new HmacSigner(options);
 
-        string relative = relativeMediaUrl.StartsWith(options.Value.RoutePrefix, StringComparison.OrdinalIgnoreCase)
-            ? relativeMediaUrl[options.Value.RoutePrefix.Length..]
+        string relative = relativeMediaUrl.StartsWith(ImageSourceMatcher.DefaultRoutePrefix, StringComparison.OrdinalIgnoreCase)
+            ? relativeMediaUrl[ImageSourceMatcher.DefaultRoutePrefix.Length..]
             : relativeMediaUrl;
         var path = new PathString($"{HttpOriginalImageSource.OriginRoutePrefix}{relative}");
 

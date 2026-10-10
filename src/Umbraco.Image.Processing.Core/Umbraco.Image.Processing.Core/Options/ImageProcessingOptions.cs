@@ -7,13 +7,15 @@ namespace Umbraco.Image.Processing.Core.Options;
 public sealed class ImageProcessingOptions
 {
     /// <summary>
-    /// The path prefix the middleware handles requests under. Set to <see cref="string.Empty" /> for
-    /// standalone mode, where the whole app is the image service.
+    /// The routes the middleware serves images under, each with its own original-image storage (registered
+    /// per <see cref="ImageSourceOptions.RoutePrefix" />). When empty, a single <c>/media</c> source backed by
+    /// the default <c>IOriginalImageSource</c> is used.
     /// </summary>
-    public string RoutePrefix { get; set; } = "/media";
+    public List<ImageSourceOptions> Sources { get; set; } = [];
 
     /// <summary>
-    /// Physical root directory original media is read from.
+    /// Physical root directory the default (local disk) <c>IOriginalImageSource</c> reads original media from.
+    /// Sources with storage of their own ignore it.
     /// </summary>
     public string OriginalsRootPath { get; set; } = "wwwroot/media";
 

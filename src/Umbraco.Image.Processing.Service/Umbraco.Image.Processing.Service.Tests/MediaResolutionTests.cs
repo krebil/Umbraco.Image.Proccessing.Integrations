@@ -64,7 +64,7 @@ public sealed class MediaResolutionTests : IDisposable
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ImageProcessing:OriginalsRootPath"] = _mediaRoot,
+                ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
                 ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
                 ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
             })));
@@ -105,7 +105,7 @@ public sealed class MediaResolutionTests : IDisposable
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ImageProcessing:OriginalsRootPath"] = _mediaRoot,
+                ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
                 ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
                 ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
             })));

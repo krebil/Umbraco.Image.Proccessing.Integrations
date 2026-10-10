@@ -1,8 +1,8 @@
 namespace Umbraco.Image.Processing.Core.Options;
 
 /// <summary>
-/// Connection settings for <c>HttpOriginalImageSource</c>, bound from <c>ImageProcessing:Proxy</c> — a
-/// section distinct from <see cref="ImageProcessingOptions.ExternalBaseUrl" />/<c>Standalone:BaseUrl</c>,
+/// Connection settings for <c>HttpOriginalImageSource</c>, bound per source (in the reference Service from
+/// <c>ImageProcessing:Sources:N:Storage:HttpProxy</c>) — a section distinct from <see cref="ImageProcessingOptions.ExternalBaseUrl" />/<c>Standalone:BaseUrl</c>,
 /// which point the opposite direction (Umbraco → Service, for generated <c>&lt;img&gt;</c> URLs and the
 /// redirect fallback). This points Service → Umbraco, for fetching raw originals back.
 /// </summary>

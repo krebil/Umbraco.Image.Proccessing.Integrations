@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
 
@@ -22,7 +24,9 @@ public static class ServiceCollectionExtensions
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IHmacSigner, HmacSigner>();
-        services.TryAddSingleton<IOriginalImageSource, LocalDiskOriginalImageSource>();
+        services.TryAddSingleton<ImageSourceMatcher>();
+        services.TryAddSingleton<IOriginalImageSource>(serviceProvider =>
+            new LocalDiskOriginalImageSource(serviceProvider.GetRequiredService<IOptions<ImageProcessingOptions>>().Value.OriginalsRootPath));
         services.TryAddSingleton<IDerivativeImageCache, LocalDiskDerivativeImageCache>();
 
         return new ImageProcessingBuilder(services);

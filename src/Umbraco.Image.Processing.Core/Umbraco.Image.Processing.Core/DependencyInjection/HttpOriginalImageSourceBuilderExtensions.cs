@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
 
 namespace Umbraco.Image.Processing.Core.DependencyInjection;
@@ -25,9 +25,33 @@ public static class HttpOriginalImageSourceBuilderExtensions
         // the old registration is removed explicitly first: RemoveAll-then-Add is exactly what Replace
         // does internally, spelled out here because AddHttpClient doesn't hand back a plain
         // ServiceDescriptor to pass to Replace directly.
-        builder.Services.RemoveAll<IOriginalImageSource>();
+        // Only the unkeyed default goes; per-source (keyed) registrations stay.
+        foreach (ServiceDescriptor descriptor in builder.Services.Where(d => d.ServiceType == typeof(IOriginalImageSource) && !d.IsKeyedService).ToList())
+        {
+            builder.Services.Remove(descriptor);
+        }
+
         builder.Services.AddHttpClient<IOriginalImageSource, HttpOriginalImageSource>();
 
         return builder;
+    }
+
+    /// <summary>
+    /// Fetches the originals of the source at <paramref name="routePrefix" /> from Umbraco over HTTP, as
+    /// <see cref="UseHttpOriginalImageSource(IImageProcessingBuilder, Action{HttpOriginalImageSourceOptions})" />
+    /// does for the default source. The path after the route prefix is what Umbraco's origin endpoint receives.
+    /// </summary>
+    public static IImageProcessingBuilder UseHttpOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<HttpOriginalImageSourceOptions> configure)
+    {
+        var options = new HttpOriginalImageSourceOptions();
+        configure(options);
+
+        string clientName = $"{nameof(HttpOriginalImageSource)}:{ImageSourceBuilderExtensions.KeyFor(routePrefix)}";
+        builder.Services.AddHttpClient(clientName);
+
+        return builder.AddOriginalImageSource(routePrefix, serviceProvider => new HttpOriginalImageSource(
+            serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(clientName),
+            serviceProvider.GetRequiredService<IHmacSigner>(),
+            Microsoft.Extensions.Options.Options.Create(options)));
     }
 }

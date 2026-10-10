@@ -13,9 +13,9 @@ namespace Umbraco.Image.Processing.Core.Storage;
 /// Umbraco's media isn't Blob-backed either. The Service has to ask Umbraco itself for the bytes.
 /// </summary>
 /// <remarks>
-/// Requests go to <see cref="OriginRoutePrefix" />, not <c>ImageProcessingOptions.RoutePrefix</c>
-/// (typically <c>/media</c>): Umbraco's Standalone-mode redirect middleware only matches requests that
-/// start with <c>RoutePrefix</c>, so a request under this separate, unrelated prefix never enters that
+/// Requests go to <see cref="OriginRoutePrefix" />, not a source's route prefix (typically
+/// <c>/media</c>): Umbraco's Standalone-mode redirect middleware only matches requests under the
+/// configured <c>ImageProcessingOptions.Sources</c>, so a request under this separate, unrelated prefix never enters that
 /// matching logic and can't be bounced straight back to the Service — no bypass branch needed in the
 /// redirect middleware itself, no risk of an exemption there accidentally also matching real browser
 /// traffic. The request is signed with the same <see cref="IHmacSigner" /> Umbraco's endpoint validates
