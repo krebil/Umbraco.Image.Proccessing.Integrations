@@ -1,4 +1,3 @@
-using System.Text;
 using Azure.Storage.Blobs;
 using Umbraco.Image.Processing.AzureBlob.Options;
 using Umbraco.Image.Processing.AzureBlob.Storage;
@@ -75,26 +74,28 @@ public sealed class AzureBlobOriginalImageSourceTests(AzuriteFixture fixture) : 
         Assert.Null(stream);
     }
 
-    [Fact]
-    public async Task OpenReadAsync_PathWithDotDotSegments_AddressesOnlyThatExactBlobName()
+    [Theory]
+    [InlineData("/../secret/photo.jpg")]
+    [InlineData("/x/../../secret/photo.jpg")]
+    [InlineData("/./../secret/photo.jpg")]
+    [InlineData("/..\\secret\\photo.jpg")]
+    [InlineData("/..%2Fsecret%2Fphoto.jpg")]
+    public async Task OpenReadAsync_DotSegments_CannotEscapeTheBlobPathPrefix(string path)
     {
-        // Blob Storage has no filesystem hierarchy, so "../" in a requested path can't escape to an
-        // ancestor the way it can on local disk — it just becomes part of one literal blob name. This
-        // proves that a blob genuinely named with a "../" segment is reachable (i.e. nothing throws or
-        // silently rejects it), and that it's a distinct blob from the equivalent traversal target.
+        // The SDK builds the blob URI with System.Uri, which collapses "." and ".." segments: without a
+        // guard, "archive/../secret/photo.jpg" is fetched as "secret/photo.jpg".
         var container = new BlobContainerClient(_fixture.ConnectionString, _containerName);
         await container.CreateIfNotExistsAsync();
-        byte[] expected = Encoding.UTF8.GetBytes("literal-dotdot-blob");
-        await container.GetBlobClient("a/../b/photo.jpg").UploadAsync(new MemoryStream(expected), overwrite: true);
+        await container.GetBlobClient("secret/photo.jpg").UploadAsync(new MemoryStream("secret"u8.ToArray()), overwrite: true);
 
-        AzureBlobOriginalImageSource source = CreateSource();
+        var source = new AzureBlobOriginalImageSource(MicrosoftOptions.Create(new AzureBlobOriginalImageSourceOptions
+        {
+            ConnectionString = _fixture.ConnectionString,
+            ContainerName = _containerName,
+            BlobPathPrefix = "archive",
+        }));
 
-        await using Stream? stream = await source.OpenReadAsync("/a/../b/photo.jpg");
-
-        Assert.NotNull(stream);
-        using var buffer = new MemoryStream();
-        await stream.CopyToAsync(buffer);
-        Assert.Equal(expected, buffer.ToArray());
+        Assert.Null(await source.OpenReadAsync(path));
     }
 
     [Fact]

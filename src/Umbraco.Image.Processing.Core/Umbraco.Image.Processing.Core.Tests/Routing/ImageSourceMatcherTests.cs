@@ -108,6 +108,29 @@ public class ImageSourceMatcherTests
         Assert.False(matcher.TryMatch("/-/archive/photo.png", out _));
     }
 
+    [Theory]
+    [InlineData("/media/../-/archive/photo.png")]
+    [InlineData("/media/..\\-\\archive\\photo.png")]
+    [InlineData("/media/1234/../../-/archive/photo.png")]
+    [InlineData("/media/./photo.png")]
+    [InlineData("/-/archive/./photo.png")]
+    public void DotSegments_AreNotMatched(string path)
+    {
+        // Hosts that don't normalize the path (or a backslash Kestrel leaves alone) would otherwise hand
+        // one source's storage a path that resolves into another's, past that source's PathPattern.
+        ImageSourceMatcher matcher = Create(Source("/media"), Source("/-/archive", @"[a-z]+\.png"));
+
+        Assert.False(matcher.TryMatch(path, out _));
+    }
+
+    [Fact]
+    public void DotsInsideASegment_AreStillMatched()
+    {
+        ImageSourceMatcher matcher = Create(Source("/media"));
+
+        Assert.True(matcher.TryMatch("/media/1234/my..photo.v2.jpg", out _));
+    }
+
     [Fact]
     public void DuplicatePrefixes_AreRejected()
     {

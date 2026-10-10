@@ -93,7 +93,7 @@ public sealed class ImageSourceMatcher
         }
 
         string relativePath = remaining.Value ?? string.Empty;
-        if (route is null || !_supportedExtensions.Contains(Path.GetExtension(relativePath)))
+        if (route is null || !_supportedExtensions.Contains(Path.GetExtension(relativePath)) || PathSegments.HasDotSegment(relativePath))
         {
             return false;
         }

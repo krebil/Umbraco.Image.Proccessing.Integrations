@@ -3,6 +3,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
 using Umbraco.Image.Processing.AzureBlob.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Storage;
 
 namespace Umbraco.Image.Processing.AzureBlob.Storage;
@@ -15,11 +16,9 @@ namespace Umbraco.Image.Processing.AzureBlob.Storage;
 /// product produced; this class resolves the raw source those crops are made from, and never writes.
 /// </summary>
 /// <remarks>
-/// Blob names have no directory-traversal risk the way local-disk paths do — Azure Blob Storage has no
-/// real filesystem hierarchy; a "/" in a blob name is just a character used for virtual-folder display,
-/// not path resolution, so a name containing "../" segments still only ever addresses one exact blob,
-/// never an ancestor. <see cref="LocalDiskOriginalImageSource" />'s root-escape check has no equivalent
-/// here for that reason.
+/// Paths with <c>.</c> or <c>..</c> segments are refused: the SDK builds the blob URI with
+/// <see cref="Uri" />, which collapses them, so <c>archive/../secret.jpg</c> would read <c>secret.jpg</c>
+/// from outside <see cref="AzureBlobOriginalImageSourceOptions.BlobPathPrefix" />.
 /// </remarks>
 public sealed class AzureBlobOriginalImageSource : IOriginalImageSource
 {
@@ -39,6 +38,11 @@ public sealed class AzureBlobOriginalImageSource : IOriginalImageSource
 
     public async Task<Stream?> OpenReadAsync(string requestPath, CancellationToken cancellationToken = default)
     {
+        if (PathSegments.HasDotSegment(requestPath))
+        {
+            return null;
+        }
+
         BlobContainerClient container = await _containerClient.Value.WaitAsync(cancellationToken);
         BlobClient blobClient = container.GetBlobClient(GetBlobName(requestPath));
 

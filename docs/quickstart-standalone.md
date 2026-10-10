@@ -73,6 +73,9 @@ await app.RunAsync();
   are not served by this source, and don't fall through to a shorter prefix
   either, so it works as an access gate on the storage behind the source.
 
+Paths with a `.` or `..` segment (split on `/` or `\`) are never served by
+any source, so a request can't resolve into another source's storage.
+
 Storage is registered in code per route prefix
 (`UseLocalDiskOriginalImageSource`, `UseAzureBlobOriginalImageSource`,
 `UseHttpOriginalImageSource`, or `AddOriginalImageSource` with your own
