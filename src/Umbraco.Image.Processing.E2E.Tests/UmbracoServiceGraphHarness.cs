@@ -115,17 +115,14 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     /// <see cref="HttpOriginalImageSource" /> — the real class the Service uses in HttpProxy storage
     /// mode — would, without going through the Service at all: issued directly against
     /// <see cref="UmbracoClient" />, this proves the endpoint itself is reachable and correctly signed,
-    /// independent of whether the Service's own round trip to it also works.
+    /// independent of whether the Service's own round trip to it also works. The endpoint receives the
+    /// source's full path (prefix included), which is how it tells several sources apart.
     /// </summary>
     public static string SignedOriginUrl(string relativeMediaUrl)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new ImageProcessingOptions { HmacSecretKey = Convert.FromBase64String(HmacSecretKeyBase64) });
         var signer = new HmacSigner(options);
-
-        string relative = relativeMediaUrl.StartsWith(ImageSourceMatcher.DefaultRoutePrefix, StringComparison.OrdinalIgnoreCase)
-            ? relativeMediaUrl[ImageSourceMatcher.DefaultRoutePrefix.Length..]
-            : relativeMediaUrl;
-        var path = new PathString($"{HttpOriginalImageSource.OriginRoutePrefix}{relative}");
+        var path = new PathString($"{HttpOriginalImageSource.OriginRoutePrefix}{relativeMediaUrl}");
 
         string? token = signer.ComputeToken(path, QueryCollection.Empty);
         return token is null ? path.Value! : $"{path}?hmac={token}";

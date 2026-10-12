@@ -257,16 +257,22 @@ redirect middleware below: a small piece of glue code in your own
 your app is deployed. It's served at a path that deliberately does **not**
 nest under any source's `RoutePrefix`, so it's exempt from that redirect
 middleware — a naive request under a source's prefix would otherwise bounce
-straight back to the service that made it:
+straight back to the service that made it. The service sends the source's
+full path after that prefix (`/__image-origin/media/1234/photo.jpg`), so
+the endpoint runs the same `ImageSourceMatcher` to pick the source, which
+also applies its `PathPattern`, and reads from the storage registered for
+that source (or the default one):
 
 ```csharp
 using Umbraco.Image.Processing.Core.Commands;
+using Umbraco.Image.Processing.Core.DependencyInjection;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
 
 app.MapGet($"{HttpOriginalImageSource.OriginRoutePrefix}/{{**path}}", async (
     HttpContext context,
-    IOriginalImageSource originalImageSource,
+    ImageSourceMatcher sourceMatcher,
     IHmacSigner hmacSigner) =>
 {
     if (!hmacSigner.Validate(context.Request.Path, context.Request.Query, context.Request.Query[ImageProcessingCommandNames.HmacToken]))
@@ -274,18 +280,27 @@ app.MapGet($"{HttpOriginalImageSource.OriginRoutePrefix}/{{**path}}", async (
         return Results.StatusCode(StatusCodes.Status400BadRequest);
     }
 
-    string relativePath = "/" + ((string?)context.GetRouteValue("path") ?? string.Empty);
-    Stream? source = await originalImageSource.OpenReadAsync(relativePath, context.RequestAborted);
+    var sourcePath = new PathString("/" + ((string?)context.GetRouteValue("path") ?? string.Empty));
+    if (!sourceMatcher.TryMatch(sourcePath, out ImageSourceMatch? match))
+    {
+        return Results.NotFound();
+    }
+
+    IOriginalImageSource originalImageSource = context.RequestServices.GetOriginalImageSource(match.RoutePrefix);
+    Stream? source = await originalImageSource.OpenReadAsync(match.RelativePath, context.RequestAborted);
     return source is null ? Results.NotFound() : Results.Stream(source, "application/octet-stream");
 });
 ```
 
-`IOriginalImageSource` and `IHmacSigner` here resolve from the same DI
-registrations `AddImageProcessing()` already sets up for your Umbraco app's
-own in-process image handling — no separate wiring needed, and safe to mount
-unconditionally regardless of `ImageProcessing:Mode`, since it costs nothing
-when nothing calls it and carries the same HMAC guard as the rest of your
-image requests.
+`ImageSourceMatcher`, `IHmacSigner` and the sources `GetOriginalImageSource`
+looks up all resolve from the same DI registrations `AddImageProcessing()`
+already sets up for your Umbraco app's own in-process image handling — no
+separate wiring needed, and safe to mount unconditionally regardless of
+`ImageProcessing:Mode`, since it costs nothing when nothing calls it and
+carries the same HMAC guard as the rest of your image requests. Two
+HTTP-proxy sources therefore never collide: `/media/x.jpg` and
+`/-/archive/x.jpg` reach the endpoint as two different paths and resolve to
+two different storages.
 
 On the standalone service side, register the HTTP implementation for the
 source instead of local disk:
@@ -315,8 +330,11 @@ imageProcessingBuilder.UseHttpOriginalImageSource("/media", options =>
 }
 ```
 
-The path after the route prefix is what Umbraco's endpoint receives, and it
-resolves it with its own `IOriginalImageSource`.
+Umbraco's endpoint receives the source's full path, route prefix included
+(`HttpOriginalImageSourceOptions.RoutePrefix`, which this overload sets to
+the prefix it registers for), and resolves it with the source's own
+`IOriginalImageSource` on its side. The two apps therefore need the same
+`Sources` list, as the "Several sources" section says.
 
 `UmbracoBaseUrl` points the opposite direction from `Standalone:BaseUrl`
 below: that one tells Umbraco where the service is, this one tells the

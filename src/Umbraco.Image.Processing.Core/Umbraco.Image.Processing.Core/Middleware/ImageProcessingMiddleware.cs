@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Umbraco.Image.Processing.Core.Commands;
+using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Media;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Processing;
@@ -33,7 +33,7 @@ public sealed class ImageProcessingMiddleware(
     private readonly ImageSourceMatcher _sourceMatcher = sourceMatcher;
     private readonly Dictionary<string, IOriginalImageSource> _originalImageSources = sourceMatcher.RoutePrefixes.ToDictionary(
         prefix => prefix,
-        prefix => serviceProvider.GetKeyedService<IOriginalImageSource>(prefix) ?? serviceProvider.GetRequiredService<IOriginalImageSource>());
+        serviceProvider.GetOriginalImageSource);
     private readonly IDerivativeImageCache _derivativeImageCache = derivativeImageCache;
     private readonly IHmacSigner _hmacSigner = hmacSigner;
     private readonly IImageProcessor _processor = processor;

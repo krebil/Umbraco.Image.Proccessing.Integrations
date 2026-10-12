@@ -39,16 +39,25 @@ public static class HttpOriginalImageSourceBuilderExtensions
     /// <summary>
     /// Fetches the originals of the source at <paramref name="routePrefix" /> from Umbraco over HTTP, as
     /// <see cref="UseHttpOriginalImageSource(IImageProcessingBuilder, Action{HttpOriginalImageSourceOptions})" />
-    /// does for the default source. The path after the route prefix is what Umbraco's origin endpoint receives.
+    /// does for the default source. Umbraco's origin endpoint receives the source's full path, prefix
+    /// included (<see cref="HttpOriginalImageSourceOptions.RoutePrefix" /> defaults to <paramref name="routePrefix" />),
+    /// and resolves the same source on its side.
     /// </summary>
     public static IImageProcessingBuilder UseHttpOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<HttpOriginalImageSourceOptions> configure)
     {
         string clientName = $"{nameof(HttpOriginalImageSource)}:{ImageSourceBuilderExtensions.KeyFor(routePrefix)}";
         builder.Services.AddHttpClient(clientName);
 
-        return builder.AddOriginalImageSource(routePrefix, configure, (serviceProvider, options) => new HttpOriginalImageSource(
-            serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(clientName),
-            serviceProvider.GetRequiredService<IHmacSigner>(),
-            Microsoft.Extensions.Options.Options.Create(options)));
+        return builder.AddOriginalImageSource<HttpOriginalImageSourceOptions>(
+            routePrefix,
+            options =>
+            {
+                options.RoutePrefix = routePrefix;
+                configure(options);
+            },
+            (serviceProvider, options) => new HttpOriginalImageSource(
+                serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(clientName),
+                serviceProvider.GetRequiredService<IHmacSigner>(),
+                Microsoft.Extensions.Options.Options.Create(options)));
     }
 }

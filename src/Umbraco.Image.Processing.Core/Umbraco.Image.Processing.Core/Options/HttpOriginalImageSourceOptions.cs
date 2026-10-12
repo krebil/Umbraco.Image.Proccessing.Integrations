@@ -1,3 +1,5 @@
+using Umbraco.Image.Processing.Core.Routing;
+
 namespace Umbraco.Image.Processing.Core.Options;
 
 /// <summary>
@@ -14,4 +16,12 @@ public sealed class HttpOriginalImageSourceOptions
     /// points at in the opposite direction.
     /// </summary>
     public string UmbracoBaseUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The route prefix of the source this storage serves, sent to Umbraco's origin endpoint ahead of the
+    /// relative path (<c>/__image-origin{RoutePrefix}/{path}</c>) so Umbraco resolves the same source. The
+    /// per-prefix <c>UseHttpOriginalImageSource(routePrefix, …)</c> overload sets it to the prefix it
+    /// registers for; the default source serves <c>/media</c>.
+    /// </summary>
+    public string RoutePrefix { get; set; } = ImageSourceMatcher.DefaultRoutePrefix;
 }
