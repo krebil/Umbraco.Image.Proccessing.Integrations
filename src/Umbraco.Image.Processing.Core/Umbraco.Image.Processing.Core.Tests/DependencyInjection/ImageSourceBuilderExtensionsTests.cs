@@ -17,6 +17,19 @@ public sealed class ImageSourceBuilderExtensionsTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("/")]
+    public void MissingOrRootPrefix_CannotBeRegistered(string? routePrefix)
+    {
+        var services = new ServiceCollection();
+
+        Assert.Throws<ArgumentException>(() => services.AddImageProcessing().UseLocalDiskOriginalImageSource(routePrefix!, o => o.RootPath = _root));
+        Assert.Throws<ArgumentException>(() => ImageSourceBuilderExtensions.KeyFor(routePrefix!));
+    }
+
     [Fact]
     public async Task LocalDiskSource_IsRegisteredUnderItsNormalizedPrefix_WithTheConfiguredRoot()
     {

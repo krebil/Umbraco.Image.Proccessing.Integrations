@@ -28,6 +28,7 @@ and `ImageProcessing:Proxy` settings with `ImageProcessing:Sources`:
 | 2.x | 3.0 |
 |---|---|
 | `RoutePrefix` | `Sources:N:RoutePrefix` |
+| `RoutePrefix` = `""` or `/` (a root source taking every path) | not accepted: every source needs a prefix such as `/media`, and an empty value counts as missing. The matcher, the options validator and the service refuse to start otherwise |
 | `Storage:Mode` (service) | `Sources:N:Storage:Mode` |
 | `Storage:Mode` (Umbraco sample: its own media storage, local disk or Blob) | `MediaStorage:Mode`, outside the `ImageProcessing` section, so the two apps' storage settings no longer share a name |
 | `Storage:AzureBlob:*` | `Sources:N:Storage:AzureBlob:*` |

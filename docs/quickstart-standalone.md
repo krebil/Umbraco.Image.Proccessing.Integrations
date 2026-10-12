@@ -66,8 +66,11 @@ await app.RunAsync();
 
 - `RoutePrefix` (required): the path prefix, e.g. `/media`, matching the path
   shape Umbraco's own `<img>` URLs use. Prefixes match whole path segments,
-  case-insensitively, and the **longest** matching prefix wins. `"/"` matches
-  every path. The HMAC signature covers the request path as sent, though: a
+  case-insensitively, and the **longest** matching prefix wins. An empty
+  value counts as missing, and the root `/` is refused at start-up: a root
+  source would take every path, including the HTTP-proxy origin endpoint's,
+  and turn every origin fetch into a redirect back to the service. The HMAC
+  signature covers the request path as sent, though: a
   URL signed as `/media/x.jpg` and requested as `/Media/x.jpg` is matched by
   the source and then refused with a 400. Only an unsigned pass-through
   request (no processing commands) is served under a differently cased

@@ -43,7 +43,11 @@ public static class ImageSourceBuilderExtensions
     public static IImageProcessingBuilder UseLocalDiskOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<LocalDiskOriginalImageSourceOptions> configure) =>
         builder.AddOriginalImageSource(routePrefix, configure, (_, options) => new LocalDiskOriginalImageSource(options.RootPath));
 
-    /// <summary>The service key an <see cref="IOriginalImageSource" /> for <paramref name="routePrefix" /> is registered under.</summary>
+    /// <summary>
+    /// The service key an <see cref="IOriginalImageSource" /> for <paramref name="routePrefix" /> is registered
+    /// under. A missing or root prefix names no source and is refused.
+    /// </summary>
     public static string KeyFor(string routePrefix) =>
-        ImageSourceMatcher.NormalizeRoutePrefix(routePrefix) ?? throw new ArgumentNullException(nameof(routePrefix));
+        ImageSourceMatcher.NormalizeRoutePrefix(routePrefix, out string? problem)
+        ?? throw new ArgumentException($"The source {problem}", nameof(routePrefix));
 }

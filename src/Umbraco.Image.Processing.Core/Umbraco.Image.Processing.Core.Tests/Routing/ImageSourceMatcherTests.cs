@@ -58,17 +58,24 @@ public class ImageSourceMatcherTests
         Assert.Equal("/photo.jpg", match.RelativePath);
     }
 
-    [Fact]
-    public void EmptyPrefix_MatchesEverythingButLosesToALongerPrefix()
+    [Theory]
+    [InlineData(null, "has no RoutePrefix")]
+    [InlineData("", "has no RoutePrefix")]
+    [InlineData("   ", "has no RoutePrefix")]
+    [InlineData("/", "root")]
+    [InlineData("//", "root")]
+    [InlineData(" / ", "root")]
+    public void MissingOrRootPrefix_IsRejected_NamingTheSource(string? routePrefix, string expectedWording)
     {
-        ImageSourceMatcher matcher = Create(Source(""), Source("/-/archive"));
+        // An empty value is what an unset environment variable (ImageProcessing__Sources__1__RoutePrefix=)
+        // binds to; it must count as missing, not as a catch-all. A root source is refused outright: it
+        // would take every path, including the HTTP-proxy origin endpoint's, which loops a Standalone-mode
+        // origin fetch straight back to the service.
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => Create(Source("/media"), Source(routePrefix)));
 
-        Assert.True(matcher.TryMatch("/anything/photo.jpg", out ImageSourceMatch? root));
-        Assert.Equal(string.Empty, root.RoutePrefix);
-        Assert.Equal("/anything/photo.jpg", root.RelativePath);
-
-        Assert.True(matcher.TryMatch("/-/archive/photo.jpg", out ImageSourceMatch? archive));
-        Assert.Equal("/-/archive", archive.RoutePrefix);
+        Assert.Contains("Sources:1", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedWording, ex.Message, StringComparison.Ordinal);
+        Assert.Single(ImageSourceMatcher.Validate(new ImageProcessingOptions { Sources = [Source("/media"), Source(routePrefix)] }));
     }
 
     [Fact]
@@ -104,9 +111,10 @@ public class ImageSourceMatcherTests
     [Fact]
     public void PathPatternMiss_DoesNotFallThroughToAShorterPrefix()
     {
-        ImageSourceMatcher matcher = Create(Source(""), Source("/-/archive", ArchivePattern));
+        ImageSourceMatcher matcher = Create(Source("/media"), Source("/media/archive", ArchivePattern));
 
-        Assert.False(matcher.TryMatch("/-/archive/photo.png", out _));
+        Assert.Equal(ImageSourceMatchOutcome.NoMatch, matcher.Match("/media/archive/photo.png").Outcome);
+        Assert.True(matcher.TryMatch("/media/photo.png", out _));
     }
 
     [Theory]
@@ -220,15 +228,6 @@ public class ImageSourceMatcherTests
     }
 
     [Fact]
-    public void MissingRoutePrefix_IsRejected_NamingTheSource()
-    {
-        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => Create(Source("/media"), Source(null)));
-
-        Assert.Contains("Sources:1", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("RoutePrefix", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void InvalidPathPattern_IsRejected_NamingTheSource()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => Create(Source("/media"), Source("/-/archive", "([a-z")));
@@ -241,23 +240,38 @@ public class ImageSourceMatcherTests
     [Fact]
     public void Validate_ListsEveryProblem_AndIsEmptyForValidSources()
     {
-        var invalid = new ImageProcessingOptions { Sources = [Source(null), Source("/media", "([a-z"), Source("/media")] };
+        var invalid = new ImageProcessingOptions { Sources = [Source(null), Source("/media", "([a-z"), Source("/media"), Source(" "), Source("/")] };
         var valid = new ImageProcessingOptions { Sources = [Source("/media"), Source("/-/archive", ArchivePattern)] };
 
-        Assert.Equal(3, ImageSourceMatcher.Validate(invalid).Count);
+        Assert.Equal(5, ImageSourceMatcher.Validate(invalid).Count);
         Assert.Empty(ImageSourceMatcher.Validate(valid));
         Assert.Empty(ImageSourceMatcher.Validate(new ImageProcessingOptions()));
     }
 
     [Theory]
     [InlineData(null, null)]
-    [InlineData("", "")]
-    [InlineData("/", "")]
+    [InlineData("", null)]
+    [InlineData("   ", null)]
+    [InlineData("/", null)]
+    [InlineData("//", null)]
     [InlineData("media", "/media")]
     [InlineData("/media/", "/media")]
+    [InlineData(" /Media/ ", "/media")]
     [InlineData("/-/Archive", "/-/archive")]
     public void NormalizeRoutePrefix(string? input, string? expected)
     {
         Assert.Equal(expected, ImageSourceMatcher.NormalizeRoutePrefix(input));
+    }
+
+    [Theory]
+    [InlineData(null, "has no RoutePrefix")]
+    [InlineData("", "has no RoutePrefix")]
+    [InlineData("/", "root")]
+    public void NormalizeRoutePrefix_SaysWhyAValueNamesNoSource(string? input, string expectedWording)
+    {
+        Assert.Null(ImageSourceMatcher.NormalizeRoutePrefix(input, out string? problem));
+        Assert.Contains(expectedWording, problem, StringComparison.Ordinal);
+        Assert.Equal("/media", ImageSourceMatcher.NormalizeRoutePrefix("/media", out string? none));
+        Assert.Null(none);
     }
 }

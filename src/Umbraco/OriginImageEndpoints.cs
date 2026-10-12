@@ -13,7 +13,9 @@ namespace ImageProcessingDemo;
 /// (production-hardening ticket 12). Mounted at <see cref="HttpOriginalImageSource.OriginRoutePrefix" />,
 /// deliberately outside every <c>ImageProcessing:Sources</c> route prefix — the Standalone-mode redirect
 /// middleware below only matches requests under those prefixes, so this route never enters its matching logic and
-/// can't loop a Service request straight back to itself. The Service sends the source's full path after the
+/// can't loop a Service request straight back to itself. That holds because a root source (<c>/</c>), which
+/// would take this path too and turn every origin fetch into a redirect back to the Service, is refused at
+/// start-up by the matcher and the Service alike. The Service sends the source's full path after the
 /// origin prefix (<c>/__image-origin/media/1234/photo.jpg</c>); the same <see cref="ImageSourceMatcher" />
 /// picks the source, so its path gate applies here too, and the <see cref="IOriginalImageSource" />
 /// registered for that source (or the default: local disk or Blob, depending on <c>MediaStorage:Mode</c>)

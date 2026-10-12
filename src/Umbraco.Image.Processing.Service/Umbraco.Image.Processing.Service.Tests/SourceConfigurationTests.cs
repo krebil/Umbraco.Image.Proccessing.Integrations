@@ -60,19 +60,31 @@ public sealed class SourceConfigurationTests : IDisposable
         Assert.Contains("/media", ex.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void SourceWithoutRoutePrefix_FailsAtStartup_NamingTheSource()
+    [Theory]
+    [InlineData(null, "has no RoutePrefix")]
+    [InlineData("", "has no RoutePrefix")]
+    [InlineData("   ", "has no RoutePrefix")]
+    [InlineData("/", "root")]
+    [InlineData("//", "root")]
+    public void MissingOrRootRoutePrefix_FailsAtStartup_NamingTheSource(string? routePrefix, string expectedWording)
     {
-        using WebApplicationFactory<Program> factory = ServiceFactory.Create(new Dictionary<string, string?>
+        // "" is the shape an environment variable with no value takes (ImageProcessing__Sources__1__RoutePrefix=).
+        var settings = new Dictionary<string, string?>
         {
             ["ImageProcessing:Sources:1:Storage:Mode"] = "LocalDisk",
             ["ImageProcessing:Sources:1:Storage:LocalDisk:RootPath"] = _root,
-        });
+        };
+        if (routePrefix is not null)
+        {
+            settings["ImageProcessing:Sources:1:RoutePrefix"] = routePrefix;
+        }
+
+        using WebApplicationFactory<Program> factory = ServiceFactory.Create(settings);
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
 
         Assert.Contains("Sources:1", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("RoutePrefix", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedWording, ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]

@@ -44,10 +44,10 @@ internal static class ImageSourceConfiguration
         foreach (IConfigurationSection entry in entries)
         {
             string name = $"ImageProcessing:Sources:{entry.Key}";
-            string? routePrefix = ImageSourceMatcher.NormalizeRoutePrefix(entry["RoutePrefix"]);
+            string? routePrefix = ImageSourceMatcher.NormalizeRoutePrefix(entry["RoutePrefix"], out string? problem);
             if (routePrefix is null)
             {
-                problems.Add($"{name} has no RoutePrefix.");
+                problems.Add($"{name} {problem}");
                 continue;
             }
 
@@ -60,9 +60,9 @@ internal static class ImageSourceConfiguration
             }
 
             IConfigurationSection storage = entry.GetSection("Storage");
-            if (!TryReadMode(storage["Mode"], several, out ImageStorageMode mode, out string? problem))
+            if (!TryReadMode(storage["Mode"], several, out ImageStorageMode mode, out string? modeProblem))
             {
-                problems.Add($"{name}: {problem}");
+                problems.Add($"{name}: {modeProblem}");
                 continue;
             }
 

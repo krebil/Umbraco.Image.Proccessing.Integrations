@@ -106,6 +106,16 @@ public sealed class HttpOriginalImageSourceTests : IAsyncDisposable
             target => Assert.StartsWith($"{HttpOriginalImageSource.OriginRoutePrefix}/-/archive{RelativePath}?hmac=", target, StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("/")]
+    public void MissingOrRootRoutePrefix_IsRefused(string routePrefix)
+    {
+        // A root prefix would send /__image-origin/{path}, the 2.x shape, and a root source on Umbraco's
+        // side would answer with a redirect back here; neither side accepts one.
+        Assert.Throws<ArgumentException>(() => CreateSource(_hmacSecretKey, routePrefix));
+    }
+
     [Fact]
     public async Task OpenReadAsync_MissingPath_ReturnsNull()
     {

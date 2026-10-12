@@ -27,6 +27,23 @@ public sealed class ImageProcessingOptionsValidationTests
         Assert.Contains("\"/-/archive\"", ex.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("", "has no RoutePrefix")]
+    [InlineData("/", "root")]
+    public async Task EmptyOrRootPrefix_FailsTheHostAtStart_NamingTheSource(string routePrefix, string expectedWording)
+    {
+        // "" is what an empty environment variable binds to: it must not become a catch-all source.
+        using IHost host = new HostBuilder()
+            .ConfigureServices(services => services.AddImageProcessing(options =>
+                options.Sources = [new ImageSourceOptions { RoutePrefix = "/media" }, new ImageSourceOptions { RoutePrefix = routePrefix }]))
+            .Build();
+
+        OptionsValidationException ex = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
+
+        Assert.Contains("Sources:1", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedWording, ex.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task ValidSources_StartTheHost()
     {

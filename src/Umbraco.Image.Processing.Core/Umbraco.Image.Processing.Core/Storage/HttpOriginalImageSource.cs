@@ -19,7 +19,8 @@ namespace Umbraco.Image.Processing.Core.Storage;
 /// matches requests under the configured <c>ImageProcessingOptions.Sources</c>, so a request under this
 /// separate, unrelated prefix never enters that matching logic and can't be bounced straight back to
 /// the Service — no bypass branch needed in the redirect middleware itself, no risk of an exemption
-/// there accidentally also matching real browser traffic. Carrying the source's prefix lets Umbraco's
+/// there accidentally also matching real browser traffic. That holds because a root source, which would
+/// take this path too, is refused at start-up. Carrying the source's prefix lets Umbraco's
 /// endpoint resolve the same source with the same rules, so two HTTP sources never collide on one
 /// relative path. The request is signed with the same <see cref="IHmacSigner" /> Umbraco's endpoint
 /// validates inbound requests with — reusing it directly rather than inventing a second secret/scheme —
@@ -38,7 +39,8 @@ public sealed class HttpOriginalImageSource(HttpClient httpClient, IHmacSigner h
     private readonly HttpClient _httpClient = httpClient;
     private readonly IHmacSigner _hmacSigner = hmacSigner;
     private readonly string _umbracoBaseUrl = options.Value.UmbracoBaseUrl.TrimEnd('/');
-    private readonly string _routePrefix = ImageSourceMatcher.NormalizeRoutePrefix(options.Value.RoutePrefix) ?? string.Empty;
+    private readonly string _routePrefix = ImageSourceMatcher.NormalizeRoutePrefix(options.Value.RoutePrefix, out string? problem)
+        ?? throw new ArgumentException($"{nameof(HttpOriginalImageSourceOptions)}.{nameof(HttpOriginalImageSourceOptions.RoutePrefix)}: the source {problem}", nameof(options));
 
     public async Task<Stream?> OpenReadAsync(string requestPath, CancellationToken cancellationToken = default)
     {

@@ -9,7 +9,8 @@ public sealed class ImageSourceOptions
 {
     /// <summary>
     /// The path prefix this source handles, e.g. <c>/media</c>. Matched on whole segments, case-insensitively;
-    /// the longest matching prefix wins. <see cref="string.Empty" /> (or <c>/</c>) matches every path.
+    /// the longest matching prefix wins. Required: an empty value counts as missing, and the root <c>/</c> is
+    /// refused, since a root source would take every path, the HTTP-proxy origin endpoint's included.
     /// </summary>
     public string? RoutePrefix { get; set; }
 

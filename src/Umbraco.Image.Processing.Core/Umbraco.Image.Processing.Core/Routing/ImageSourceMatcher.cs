@@ -45,8 +45,8 @@ public sealed class ImageSourceMatcher
 
     /// <summary>
     /// What stops <see cref="ImageProcessingOptions.Sources" /> from being matched against, one message per
-    /// source naming its index and prefix: a missing RoutePrefix, a prefix another source already has, or a
-    /// PathPattern that is not a valid regular expression. Empty when the sources are valid.
+    /// source naming its index and prefix: a missing or root RoutePrefix, a prefix another source already has,
+    /// or a PathPattern that is not a valid regular expression. Empty when the sources are valid.
     /// </summary>
     public static IReadOnlyList<string> Validate(ImageProcessingOptions options)
     {
@@ -55,18 +55,36 @@ public sealed class ImageSourceMatcher
     }
 
     /// <summary>
-    /// Lower-cases and gives the prefix one leading and no trailing <c>/</c>; <c>/</c> becomes
-    /// <see cref="string.Empty" />. Keyed <c>IOriginalImageSource</c> registrations use the same form.
+    /// Lower-cases and gives the prefix one leading and no trailing <c>/</c>, the form keyed
+    /// <c>IOriginalImageSource</c> registrations use; <see langword="null" /> when the value names no source
+    /// (see the other overload for why).
     /// </summary>
-    public static string? NormalizeRoutePrefix(string? routePrefix)
+    public static string? NormalizeRoutePrefix(string? routePrefix) => NormalizeRoutePrefix(routePrefix, out _);
+
+    /// <summary>
+    /// As <see cref="NormalizeRoutePrefix(string?)" />, with <paramref name="problem" /> saying why a value
+    /// names no source: it is missing (<see langword="null" />, empty or whitespace, the shape an environment
+    /// variable with no value takes), or it is the root <c>/</c>. A root source is refused because it would
+    /// take every path, including the HTTP-proxy origin endpoint's, which loops a Standalone-mode origin
+    /// fetch straight back to the service.
+    /// </summary>
+    public static string? NormalizeRoutePrefix(string? routePrefix, out string? problem)
     {
-        if (routePrefix is null)
+        problem = null;
+        if (string.IsNullOrWhiteSpace(routePrefix))
         {
+            problem = "has no RoutePrefix.";
             return null;
         }
 
         string trimmed = routePrefix.Trim().Trim('/');
-        return trimmed.Length == 0 ? string.Empty : "/" + trimmed.ToLowerInvariant();
+        if (trimmed.Length == 0)
+        {
+            problem = "has the root RoutePrefix \"/\", which is not accepted: a source needs a prefix such as \"/media\", because a root source would take every path, the HTTP-proxy origin endpoint's included.";
+            return null;
+        }
+
+        return "/" + trimmed.ToLowerInvariant();
     }
 
     /// <summary>
@@ -86,13 +104,6 @@ public sealed class ImageSourceMatcher
         PathString remaining = default;
         foreach (Route candidate in _routes)
         {
-            if (candidate.Prefix.Length == 0)
-            {
-                route = candidate;
-                remaining = path;
-                break;
-            }
-
             if (path.StartsWithSegments(candidate.Prefix, StringComparison.OrdinalIgnoreCase, out remaining))
             {
                 route = candidate;
@@ -146,10 +157,10 @@ public sealed class ImageSourceMatcher
         for (int index = 0; index < sources.Count; index++)
         {
             ImageSourceOptions source = sources[index];
-            string? prefix = NormalizeRoutePrefix(source.RoutePrefix);
+            string? prefix = NormalizeRoutePrefix(source.RoutePrefix, out string? problem);
             if (prefix is null)
             {
-                problems.Add($"ImageProcessing:Sources:{index} has no RoutePrefix (use \"/\" to match every path).");
+                problems.Add($"ImageProcessing:Sources:{index} {problem}");
                 continue;
             }
 
