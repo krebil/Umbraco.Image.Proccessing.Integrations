@@ -1,12 +1,11 @@
 using System.Net;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using SkiaSharp;
 using Umbraco.Cms.Core.IO.MediaPathSchemes;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.IntegrationTests.Shared;
 using Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
@@ -54,25 +53,19 @@ public sealed class MediaResolutionTests : IDisposable
     public async Task ImageSavedTheWayUmbracoSavesIt_IsResolvableThroughTheStandaloneService()
     {
         // Arrange: compute the relative path via Umbraco's actual media-path algorithm — not a
-        // hand-typed guess — and write a real source image there, simulating what Umbraco's media
+        // hand-typed guess — and write a real original image there, simulating what Umbraco's media
         // pipeline does on a real upload.
         string relativePath = new UniqueMediaPathScheme().GetFilePath(fileManager: null!, Guid.NewGuid(), Guid.NewGuid(), "photo.jpg");
         string fullPath = Path.Combine(_mediaRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         await File.WriteAllBytesAsync(fullPath, TestImages.FourCornerPngBytes());
 
-        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ImageProcessing:OriginalsRootPath"] = _mediaRoot,
-                ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
-                ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
-            })));
+        await using WebApplicationFactory<Program> factory = CreateFactory();
 
         // The URL Umbraco's own media pipeline would hand IImageUrlGenerator for this item.
         // ImageProcessingUrlGenerator only appends query params onto it — it never reshapes the path.
         var urlGeneratorOptions = MicrosoftOptions.Create(new ImageProcessingOptions { HmacSecretKey = _hmacSecretKey });
-        var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions));
+        var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions), new ImageSourceMatcher(urlGeneratorOptions));
         string? url = urlGenerator.GetImageUrl(new ImageUrlGenerationOptions("/media/" + relativePath) { Width = 200 });
         Assert.NotNull(url);
         Assert.Contains("hmac=", url);
@@ -102,16 +95,10 @@ public sealed class MediaResolutionTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         await File.WriteAllBytesAsync(fullPath, TestImages.FourCornerPngBytes());
 
-        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ImageProcessing:OriginalsRootPath"] = _mediaRoot,
-                ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
-                ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
-            })));
+        await using WebApplicationFactory<Program> factory = CreateFactory();
 
         var urlGeneratorOptions = MicrosoftOptions.Create(new ImageProcessingOptions { HmacSecretKey = _hmacSecretKey });
-        var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions));
+        var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions), new ImageSourceMatcher(urlGeneratorOptions));
         string? url = urlGenerator.GetImageUrl(new ImageUrlGenerationOptions("/media/not-the-real-path/photo.jpg") { Width = 200 });
         Assert.NotNull(url);
 
@@ -121,4 +108,12 @@ public sealed class MediaResolutionTests : IDisposable
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    private WebApplicationFactory<Program> CreateFactory() =>
+        ServiceFactory.Create(new Dictionary<string, string?>
+        {
+            ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
+            ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
+            ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
+        });
 }

@@ -4,6 +4,7 @@ using Aspire.Hosting.Testing;
 using Microsoft.AspNetCore.Http;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
 using Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
@@ -40,21 +41,29 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     /// <summary>
     /// Starts the whole graph. <paramref name="storageMode" /> is <c>"LocalDisk"</c> (default),
     /// <c>"AzureBlob"</c>, or <c>"HttpProxy"</c> — forwarded straight to <c>AppHost.cs</c>'s own
-    /// <c>Storage:Mode</c> switch. Always runs Umbraco in Standalone image-processing mode: LocalDisk
-    /// mode's redirect-to-Service behavior, Blob mode, and HttpProxy mode's reverse fetch all only
-    /// matter when Umbraco isn't handling image requests itself.
+    /// <c>Storage:Mode</c> switch. <paramref name="secondSourceRootPath" />, when set, adds the AppHost's
+    /// opt-in second source (<c>/-/archive</c>, pattern-gated, local disk at that directory) to both apps.
+    /// Always runs Umbraco in Standalone image-processing mode: LocalDisk mode's redirect-to-Service
+    /// behavior, Blob mode, and HttpProxy mode's reverse fetch all only matter when Umbraco isn't handling
+    /// image requests itself.
     /// </summary>
-    public async Task StartAsync(string storageMode = "LocalDisk", CancellationToken cancellationToken = default)
+    public async Task StartAsync(string storageMode = "LocalDisk", string? secondSourceRootPath = null, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
         string dbConnectionString = $"Data Source={_dbPath};Cache=Shared;Foreign Keys=True;Pooling=True";
 
-        IDistributedApplicationTestingBuilder builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Umbraco_Image_Processing_AppHost>(
+        List<string> args =
         [
             "--ImageProcessing:Mode=Standalone",
             $"--Storage:Mode={storageMode}",
             $"--ConnectionStrings:umbracoDbDSN={dbConnectionString}",
-        ], cancellationToken);
+        ];
+        if (secondSourceRootPath is not null)
+        {
+            args.Add($"--SecondSource:RootPath={secondSourceRootPath}");
+        }
+
+        IDistributedApplicationTestingBuilder builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Umbraco_Image_Processing_AppHost>([.. args], cancellationToken);
 
         _app = await builder.BuildAsync(cancellationToken);
         await _app.StartAsync(cancellationToken);
@@ -103,7 +112,7 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     public static string SignedResizeUrl(string relativeMediaUrl, int width)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new ImageProcessingOptions { HmacSecretKey = Convert.FromBase64String(HmacSecretKeyBase64) });
-        var generator = new ImageProcessingUrlGenerator(options, new HmacSigner(options));
+        var generator = new ImageProcessingUrlGenerator(options, new HmacSigner(options), new ImageSourceMatcher(options));
         return generator.GetImageUrl(new ImageUrlGenerationOptions(relativeMediaUrl) { Width = width })
             ?? throw new InvalidOperationException("ImageProcessingUrlGenerator returned no URL.");
     }
@@ -114,17 +123,14 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     /// <see cref="HttpOriginalImageSource" /> — the real class the Service uses in HttpProxy storage
     /// mode — would, without going through the Service at all: issued directly against
     /// <see cref="UmbracoClient" />, this proves the endpoint itself is reachable and correctly signed,
-    /// independent of whether the Service's own round trip to it also works.
+    /// independent of whether the Service's own round trip to it also works. The endpoint receives the
+    /// source's full path (prefix included), which is how it tells several sources apart.
     /// </summary>
     public static string SignedOriginUrl(string relativeMediaUrl)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new ImageProcessingOptions { HmacSecretKey = Convert.FromBase64String(HmacSecretKeyBase64) });
         var signer = new HmacSigner(options);
-
-        string relative = relativeMediaUrl.StartsWith(options.Value.RoutePrefix, StringComparison.OrdinalIgnoreCase)
-            ? relativeMediaUrl[options.Value.RoutePrefix.Length..]
-            : relativeMediaUrl;
-        var path = new PathString($"{HttpOriginalImageSource.OriginRoutePrefix}{relative}");
+        var path = new PathString($"{HttpOriginalImageSource.OriginRoutePrefix}{relativeMediaUrl}");
 
         string? token = signer.ComputeToken(path, QueryCollection.Empty);
         return token is null ? path.Value! : $"{path}?hmac={token}";

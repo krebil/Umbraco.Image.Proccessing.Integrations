@@ -1,7 +1,7 @@
 using Umbraco.Image.Processing.AzureBlob.DependencyInjection;
-using Umbraco.Image.Processing.AzureBlob.Options;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
+using Umbraco.Image.Processing.Service;
 #if INCLUDE_IMAGEFLOW
 using Umbraco.Image.Processing.ImageFlow;
 #endif
@@ -14,7 +14,6 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 IConfigurationSection imageProcessingSection = builder.Configuration.GetSection("ImageProcessing");
 var processor = imageProcessingSection.GetValue<ImageProcessorKind?>("Processor")
     ?? throw new InvalidOperationException("ImageProcessing:Processor must be configured (e.g. \"SkiaSharp\" or \"ImageFlow\").");
-var storageMode = imageProcessingSection.GetValue("Storage:Mode", ImageStorageMode.LocalDisk);
 
 IImageProcessingBuilder imageProcessingBuilder = builder.Services.AddImageProcessing(options => imageProcessingSection.Bind(options));
 
@@ -37,29 +36,47 @@ switch (processor)
             "ImageProcessor value, or configure a processor this build includes.");
 }
 
-if (storageMode == ImageStorageMode.AzureBlob)
+// Every source in ImageProcessing:Sources declares its route (RoutePrefix, PathPattern; bound into
+// ImageProcessingOptions above) and the storage its original images come from, registered under its
+// route prefix. A source that would read the wrong place stops the service here, by name.
+foreach (ConfiguredImageSource source in ImageSourceConfiguration.Read(imageProcessingSection))
 {
-    // Reads originals straight from the same Blob container Umbraco's own Blob-backed media file
-    // system (Umbraco.StorageProviders.AzureBlob) writes to — no shared disk/volume between the two
-    // processes, unlike LocalDisk mode's OriginalsRootPath convention (production-hardening ticket 11).
-    imageProcessingBuilder.UseAzureBlobOriginalImageSource(options =>
-        imageProcessingSection.GetSection("Storage:AzureBlob").Bind(options));
-}
-else if (storageMode == ImageStorageMode.HttpProxy)
-{
-    // Neither a shared disk nor Blob-backed media applies: fetches originals from Umbraco itself over
-    // HTTP, via the raw-original endpoint Umbraco mounts unconditionally at HttpOriginalImageSource's
-    // own OriginRoutePrefix (production-hardening ticket 12).
-    imageProcessingBuilder.UseHttpOriginalImageSource(options =>
-        imageProcessingSection.GetSection("Proxy").Bind(options));
+    switch (source.Mode)
+    {
+        case ImageStorageMode.LocalDisk:
+            imageProcessingBuilder.UseLocalDiskOriginalImageSource(source.RoutePrefix, options => source.Storage.GetSection("LocalDisk").Bind(options));
+            break;
+
+        // Reads original images straight from the Blob container the owning app writes to — no shared
+        // disk/volume between the two processes.
+        case ImageStorageMode.AzureBlob:
+            imageProcessingBuilder.UseAzureBlobOriginalImageSource(source.RoutePrefix, options => source.Storage.GetSection("AzureBlob").Bind(options));
+            break;
+
+        // Fetches original images from Umbraco itself over HTTP, via the raw-original endpoint Umbraco
+        // mounts at HttpOriginalImageSource.OriginRoutePrefix.
+        case ImageStorageMode.HttpProxy:
+            imageProcessingBuilder.UseHttpOriginalImageSource(source.RoutePrefix, options => source.Storage.GetSection("HttpProxy").Bind(options));
+            break;
+    }
 }
 
 WebApplication app = builder.Build();
 
-// This entire app is the image service — Core's middleware is the whole pipeline, matched by
-// ImageProcessingOptions.RoutePrefix (still "/media" by default) so the paths it serves line up
-// with what the Umbraco sample's redirect middleware and ExternalBaseUrl-prefixed URLs both target.
+foreach (string setting in ImageSourceConfiguration.SettingsNoLongerRead(imageProcessingSection))
+{
+    app.Logger.LogWarning("{Setting} is a 2.x setting this service no longer reads; its 3.0 form is in the README's 2.x to 3.0 mapping.", setting);
+}
+
+// This entire app is the image service — Core's middleware is the whole pipeline, matched against
+// ImageProcessing:Sources so the paths it serves line up with what the Umbraco sample's redirect
+// middleware and ExternalBaseUrl-prefixed URLs both target.
 app.UseImageProcessing();
+
+// A visible link to the running code (AGPL §13 when built with the ImageFlow processor); also gives
+// health probes a 200 at the root.
+string sourceCodeUrl = app.Configuration.GetValue("SourceCodeUrl", "https://github.com/krebil/Umbraco.Image.Proccessing.Integrations")!;
+app.MapGet("/", () => Results.Text($"Umbraco image processing service. Source code: {sourceCodeUrl}"));
 
 await app.RunAsync();
 
@@ -71,19 +88,6 @@ internal enum ImageProcessorKind
 {
     SkiaSharp,
     ImageFlow,
-}
-
-/// <summary>
-/// Where this service resolves original (unprocessed) media from. LocalDisk expects a shared
-/// disk/volume with Umbraco (<see cref="Umbraco.Image.Processing.Core.Options.ImageProcessingOptions.OriginalsRootPath" />);
-/// AzureBlob expects Umbraco's media file system to also be Blob-backed, at the same container;
-/// HttpProxy expects neither — it fetches the raw original from Umbraco itself over HTTP.
-/// </summary>
-internal enum ImageStorageMode
-{
-    LocalDisk,
-    AzureBlob,
-    HttpProxy,
 }
 
 // The compiler-generated top-level-statements Program class is already public in ASP.NET Core Web

@@ -2,26 +2,30 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Umbraco.Image.Processing.Core.Commands;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 
 namespace Umbraco.Image.Processing.Core.Storage;
 
 /// <summary>
-/// Reads originals over HTTP from Umbraco's own raw-original endpoint — for the deployment shape
+/// Reads original images over HTTP from Umbraco's own raw-original endpoint — for the deployment shape
 /// neither <c>LocalDiskOriginalImageSource</c> nor <c>AzureBlobOriginalImageSource</c> covers: Umbraco
 /// and the standalone Service are genuinely separate deployments with no shared disk/volume, and
 /// Umbraco's media isn't Blob-backed either. The Service has to ask Umbraco itself for the bytes.
 /// </summary>
 /// <remarks>
-/// Requests go to <see cref="OriginRoutePrefix" />, not <c>ImageProcessingOptions.RoutePrefix</c>
-/// (typically <c>/media</c>): Umbraco's Standalone-mode redirect middleware only matches requests that
-/// start with <c>RoutePrefix</c>, so a request under this separate, unrelated prefix never enters that
-/// matching logic and can't be bounced straight back to the Service — no bypass branch needed in the
-/// redirect middleware itself, no risk of an exemption there accidentally also matching real browser
-/// traffic. The request is signed with the same <see cref="IHmacSigner" /> Umbraco's endpoint validates
-/// inbound requests with — reusing it directly rather than inventing a second secret/scheme — so the
-/// route isn't an unauthenticated bulk-download of every original; the route change and the signature
-/// are independent layers, one avoids the loop, the other stops unauthenticated access.
+/// Requests go to <see cref="OriginRoutePrefix" /> followed by the source's own path, prefix included
+/// (<c>/__image-origin/media/1234/photo.jpg</c>): Umbraco's Standalone-mode redirect middleware only
+/// matches requests under the configured <c>ImageProcessingOptions.Sources</c>, so a request under this
+/// separate, unrelated prefix never enters that matching logic and can't be bounced straight back to
+/// the Service — no bypass branch needed in the redirect middleware itself, no risk of an exemption
+/// there accidentally also matching real browser traffic. That holds because a root source, which would
+/// take this path too, is refused at start-up. Carrying the source's prefix lets Umbraco's
+/// endpoint resolve the same source with the same rules, so two HTTP sources never collide on one
+/// relative path. The request is signed with the same <see cref="IHmacSigner" /> Umbraco's endpoint
+/// validates inbound requests with — reusing it directly rather than inventing a second secret/scheme —
+/// so the route isn't an unauthenticated bulk-download of every original; the route change and the
+/// signature are independent layers, one avoids the loop, the other stops unauthenticated access.
 /// </remarks>
 public sealed class HttpOriginalImageSource(HttpClient httpClient, IHmacSigner hmacSigner, IOptions<HttpOriginalImageSourceOptions> options) : IOriginalImageSource
 {
@@ -35,10 +39,12 @@ public sealed class HttpOriginalImageSource(HttpClient httpClient, IHmacSigner h
     private readonly HttpClient _httpClient = httpClient;
     private readonly IHmacSigner _hmacSigner = hmacSigner;
     private readonly string _umbracoBaseUrl = options.Value.UmbracoBaseUrl.TrimEnd('/');
+    private readonly string _routePrefix = ImageSourceMatcher.NormalizeRoutePrefix(options.Value.RoutePrefix, out string? problem)
+        ?? throw new ArgumentException($"{nameof(HttpOriginalImageSourceOptions)}.{nameof(HttpOriginalImageSourceOptions.RoutePrefix)}: the source {problem}", nameof(options));
 
     public async Task<Stream?> OpenReadAsync(string requestPath, CancellationToken cancellationToken = default)
     {
-        var originPath = new PathString($"{OriginRoutePrefix}/{requestPath.TrimStart('/', '\\')}");
+        var originPath = new PathString($"{OriginRoutePrefix}{_routePrefix}/{requestPath.TrimStart('/', '\\')}");
         string? token = _hmacSigner.ComputeToken(originPath, QueryCollection.Empty);
         string url = token is null
             ? $"{_umbracoBaseUrl}{originPath}"

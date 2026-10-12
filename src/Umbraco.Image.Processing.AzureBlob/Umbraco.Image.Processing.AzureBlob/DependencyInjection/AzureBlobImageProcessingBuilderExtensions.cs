@@ -39,4 +39,12 @@ public static class AzureBlobImageProcessingBuilderExtensions
 
         return builder;
     }
+
+    /// <summary>
+    /// Reads the original images of the source at <paramref name="routePrefix" /> from Azure Blob Storage: the
+    /// blob name is <see cref="AzureBlobOriginalImageSourceOptions.BlobPathPrefix" /> plus the request path
+    /// after the route prefix.
+    /// </summary>
+    public static IImageProcessingBuilder UseAzureBlobOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<AzureBlobOriginalImageSourceOptions> configure) =>
+        builder.AddOriginalImageSource(routePrefix, configure, (_, options) => new AzureBlobOriginalImageSource(Microsoft.Extensions.Options.Options.Create(options)));
 }

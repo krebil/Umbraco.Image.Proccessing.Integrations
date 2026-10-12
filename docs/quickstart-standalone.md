@@ -22,7 +22,9 @@ dotnet add package Krebil.Umbraco.Image.Processing.Core
 dotnet add package Krebil.Umbraco.Image.Processing.SkiaSharp
 ```
 
-`Program.cs` stays small: Core's middleware *is* the whole app.
+`Program.cs` stays small: Core's middleware *is* the whole app. Each
+**image source** is a route prefix plus the storage its original images come
+from; the storage is registered under that route prefix.
 
 ```csharp
 using Umbraco.Image.Processing.Core.DependencyInjection;
@@ -36,6 +38,9 @@ IImageProcessingBuilder imageProcessingBuilder = builder.Services
 
 imageProcessingBuilder.UseSkiaSharp(); // or .UseImageFlow()
 
+imageProcessingBuilder.UseLocalDiskOriginalImageSource("/media", options =>
+    options.RootPath = "<path or mount to the same original images Umbraco reads>");
+
 WebApplication app = builder.Build();
 
 app.UseImageProcessing();
@@ -48,27 +53,96 @@ await app.RunAsync();
 ```json
 {
   "ImageProcessing": {
-    "Processor": "SkiaSharp",
-    "OriginalsRootPath": "<path or mount to the same media originals Umbraco reads>",
+    "Sources": [
+      { "RoutePrefix": "/media" }
+    ],
     "DerivativeCacheRootPath": "App_Data/image-cache",
     "HmacSecretKey": "<same value as the Umbraco app's ImageProcessing:HmacSecretKey>"
   }
 }
 ```
 
-`RoutePrefix` defaults to `/media`, matching the path shape Umbraco's own
-`<img>` URLs use. Leave it as-is unless you have a reason to change it, since
-the redirect middleware in step 4 assumes it lines up.
+`Sources` lists the routes the service handles. Each entry has:
 
-`OriginalsRootPath` must resolve to the same media files Umbraco serves. This
-is local-disk mode: it needs local disk reachable from both processes — a
-shared volume, or (as this repo's own sample does for local dev) a relative
-path across two checked-out projects. It only works while Umbraco and the
-standalone service share a filesystem, which stops being true once they're
-genuinely separate deployments (see `imagesharp-standalone-service-plan.md`
-§2). For that case, use Blob mode instead.
+- `RoutePrefix` (required): the path prefix, e.g. `/media`, matching the path
+  shape Umbraco's own `<img>` URLs use. Prefixes match whole path segments,
+  case-insensitively, and the **longest** matching prefix wins. An empty
+  value counts as missing, and the root `/` is refused at start-up: a root
+  source would take every path, including the HTTP-proxy origin endpoint's,
+  and turn every origin fetch into a redirect back to the service. The HMAC
+  signature covers the request path as sent, though: a
+  URL signed as `/media/x.jpg` and requested as `/Media/x.jpg` is matched by
+  the source and then refused with a 400. Only an unsigned pass-through
+  request (no processing commands) is served under a differently cased
+  prefix.
+- `PathPattern` (optional): a regular expression the path *after* the prefix
+  (without its leading `/`) must match **in full**. Requests that don't match
+  are not served by this source, and don't fall through to a shorter prefix
+  either, so it works as an access gate on the storage behind the source.
 
-### Blob mode: resolving originals from Azure Blob Storage
+Paths with a `.` or `..` segment (split on `/` or `\`), or with a
+percent-encoded separator (`%2F`, `%5C`) still in them, are refused with a
+400 by every source, so a request can't resolve into another source's
+storage. They are refused rather than passed on: in-process, the next
+handler would be static files, which would serve the raw file. A
+`PathPattern` that times out (100 ms) is refused with a 404 and logged as a
+warning, because it points at a pattern to fix.
+
+Storage is registered in code per route prefix
+(`UseLocalDiskOriginalImageSource`, `UseAzureBlobOriginalImageSource`,
+`UseHttpOriginalImageSource`, or `AddOriginalImageSource` with your own
+`IOriginalImageSource`). A source without a registration of its own reads from
+the default `IOriginalImageSource` (local disk at `OriginalsRootPath`).
+
+The derivative cache is shared by all sources; its keys include the route
+prefix, so the same relative path under two prefixes never collides. The HMAC
+signature covers the full request path, prefix included.
+
+The reference service in this repo (`Umbraco.Image.Processing.Service`) reads
+each source's storage from configuration instead, under
+`ImageProcessing:Sources:N:Storage`:
+
+```json
+{
+  "ImageProcessing": {
+    "Processor": "ImageFlow",
+    "Sources": [
+      {
+        "RoutePrefix": "/media",
+        "Storage": {
+          "Mode": "LocalDisk",
+          "LocalDisk": { "RootPath": "<path to the original images>" }
+        }
+      }
+    ]
+  }
+}
+```
+
+`Storage:Mode` is `LocalDisk` (`Storage:LocalDisk:RootPath`), `AzureBlob`
+(`Storage:AzureBlob:ConnectionString`/`ContainerName`/`BlobPathPrefix`) or
+`HttpProxy` (`Storage:HttpProxy:UmbracoBaseUrl`). A single source may leave
+`Storage:Mode` out and gets `LocalDisk` at `wwwroot/media`, as in 2.x. With
+several sources, each must set `Storage:Mode` and the settings that mode
+needs (`LocalDisk:RootPath`; `AzureBlob:ConnectionString` and
+`ContainerName`; `HttpProxy:UmbracoBaseUrl`), so no source quietly reads
+another's default; `AzureBlob:ConnectionString` and `HttpProxy:UmbracoBaseUrl`
+are required in any case. The service refuses to start otherwise, and
+without at least one source, naming the source by index and prefix. A
+leftover 2.x setting (`ImageProcessing:RoutePrefix`, `Storage`, `Proxy`,
+`OriginalsRootPath`) is logged as a warning at start-up. Its root (`/`)
+answers with a link to its source code (`SourceCodeUrl`, defaulting to this
+repository).
+
+Local-disk storage must resolve to the same media files Umbraco serves. It
+needs local disk reachable from both processes — a shared volume, or (as this
+repo's own sample does for local dev) a relative path across two checked-out
+projects. It only works while Umbraco and the standalone service share a
+filesystem, which stops being true once they're genuinely separate
+deployments (see `imagesharp-standalone-service-plan.md` §2). For that case,
+use Blob mode instead.
+
+### Blob mode: reading original images from Azure Blob Storage
 
 If Umbraco's own media is Blob-backed instead of local disk, point the
 standalone service at the same container directly — no shared disk between
@@ -101,35 +175,42 @@ builder.CreateUmbracoBuilder()
 }
 ```
 
-On the standalone service side, swap `IOriginalImageSource` to the Blob
-implementation instead of setting `OriginalsRootPath`:
+On the standalone service side, register the Blob implementation for the
+source instead of local disk:
 
 ```csharp
 using Umbraco.Image.Processing.AzureBlob.DependencyInjection;
 
-imageProcessingBuilder.UseAzureBlobOriginalImageSource(options =>
-    builder.Configuration.GetSection("ImageProcessing:Storage:AzureBlob").Bind(options));
+imageProcessingBuilder.UseAzureBlobOriginalImageSource("/media", options =>
+    builder.Configuration.GetSection("ImageProcessing:Sources:0:Storage:AzureBlob").Bind(options));
 ```
 
 ```json
 {
   "ImageProcessing": {
-    "Storage": {
-      "AzureBlob": {
-        "ConnectionString": "<same connection string as Umbraco's Media file system, above>",
-        "ContainerName": "media",
-        "BlobPathPrefix": "media"
+    "Sources": [
+      {
+        "RoutePrefix": "/media",
+        "Storage": {
+          "Mode": "AzureBlob",
+          "AzureBlob": {
+            "ConnectionString": "<same connection string as Umbraco's Media file system, above>",
+            "ContainerName": "media",
+            "BlobPathPrefix": "media"
+          }
+        }
       }
-    }
+    ]
   }
 }
 ```
 
 Both sides must point at the **same** connection string and container.
 `ContainerName` here is the container Umbraco's media file system writes to.
-`BlobPathPrefix` defaults to `"media"`, matching `Umbraco.StorageProviders.AzureBlob`'s
-own default blob naming; only change it if you've overridden
-`ContainerRootPath`/`VirtualPath` on the Umbraco side.
+The blob name is `BlobPathPrefix` plus the request path after the route
+prefix. `BlobPathPrefix` defaults to `"media"`, matching
+`Umbraco.StorageProviders.AzureBlob`'s own default blob naming; only change it
+if you've overridden `ContainerRootPath`/`VirtualPath` on the Umbraco side.
 
 If you also enable `AzureBlobDerivativeImageCache` (ticket 05) for the
 derivative cache, it can share the **same storage account** (the same
@@ -144,29 +225,70 @@ Unlike the derivative cache, this container is **not created automatically**
 ahead of deploy, the same way you would for a real Azure Storage account. A
 missing container surfaces as every request 404ing, not a startup failure.
 
-### HTTP-proxy mode: fetching originals from Umbraco over HTTP
+### Several sources: serving a second container
+
+One instance can serve images from several places. Add a source per route
+prefix, each with its own storage. For example, Umbraco media plus
+content-addressed assets that another part of the app writes to a private
+`archive` container under `sites/{site}/assets/{hash}.{ext}`:
+
+```json
+{
+  "ImageProcessing": {
+    "Sources": [
+      {
+        "RoutePrefix": "/media",
+        "Storage": { "Mode": "AzureBlob", "AzureBlob": { "ConnectionString": "<...>", "ContainerName": "media", "BlobPathPrefix": "media" } }
+      },
+      {
+        "RoutePrefix": "/-/archive",
+        "PathPattern": "^[0-9a-f]{32}/assets/[0-9a-f]{32}\\.[a-z0-9]{1,10}$",
+        "Storage": { "Mode": "AzureBlob", "AzureBlob": { "ConnectionString": "<...>", "ContainerName": "archive", "BlobPathPrefix": "sites" } }
+      }
+    ]
+  }
+}
+```
+
+`/-/archive/{site}/assets/{hash}.png?width=400` then reads the blob
+`archive:sites/{site}/assets/{hash}.png`, and the `PathPattern` keeps every
+other blob in that container out of reach. As environment variables, the same
+settings are `ImageProcessing__Sources__1__RoutePrefix`,
+`ImageProcessing__Sources__1__Storage__AzureBlob__ContainerName` and so on.
+
+The Umbraco app needs the same `Sources` list (route prefixes and patterns;
+storage is ignored there) so its URL generator and redirect middleware (step 3)
+send exactly these paths to the service.
+
+### HTTP-proxy mode: fetching original images from Umbraco over HTTP
 
 If Umbraco's media is plain local disk *and* Umbraco and the standalone
 service are genuinely separate deployments with no shared disk/volume,
-neither `OriginalsRootPath` nor Blob mode applies. Use this third mode
+neither local-disk nor Blob mode applies. Use this third mode
 instead: the service asks Umbraco itself for the raw file over HTTP.
 
 On the Umbraco side, mount a raw-original endpoint — same idea as step 3's
 redirect middleware below: a small piece of glue code in your own
 `Program.cs`, not a call into a packaged method, since it's specific to how
 your app is deployed. It's served at a path that deliberately does **not**
-nest under `RoutePrefix`, so it's exempt from that redirect middleware — a
-naive request under `RoutePrefix` would otherwise bounce straight back to the
-service that made it:
+nest under any source's `RoutePrefix`, so it's exempt from that redirect
+middleware — a naive request under a source's prefix would otherwise bounce
+straight back to the service that made it. The service sends the source's
+full path after that prefix (`/__image-origin/media/1234/photo.jpg`), so
+the endpoint runs the same `ImageSourceMatcher` to pick the source, which
+also applies its `PathPattern`, and reads from the storage registered for
+that source (or the default one):
 
 ```csharp
 using Umbraco.Image.Processing.Core.Commands;
+using Umbraco.Image.Processing.Core.DependencyInjection;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
 
 app.MapGet($"{HttpOriginalImageSource.OriginRoutePrefix}/{{**path}}", async (
     HttpContext context,
-    IOriginalImageSource originalImageSource,
+    ImageSourceMatcher sourceMatcher,
     IHmacSigner hmacSigner) =>
 {
     if (!hmacSigner.Validate(context.Request.Path, context.Request.Query, context.Request.Query[ImageProcessingCommandNames.HmacToken]))
@@ -174,38 +296,61 @@ app.MapGet($"{HttpOriginalImageSource.OriginRoutePrefix}/{{**path}}", async (
         return Results.StatusCode(StatusCodes.Status400BadRequest);
     }
 
-    string relativePath = "/" + ((string?)context.GetRouteValue("path") ?? string.Empty);
-    Stream? source = await originalImageSource.OpenReadAsync(relativePath, context.RequestAborted);
+    var sourcePath = new PathString("/" + ((string?)context.GetRouteValue("path") ?? string.Empty));
+    if (!sourceMatcher.TryMatch(sourcePath, out ImageSourceMatch? match))
+    {
+        return Results.NotFound();
+    }
+
+    IOriginalImageSource originalImageSource = context.RequestServices.GetOriginalImageSource(match.RoutePrefix);
+    Stream? source = await originalImageSource.OpenReadAsync(match.RelativePath, context.RequestAborted);
     return source is null ? Results.NotFound() : Results.Stream(source, "application/octet-stream");
 });
 ```
 
-`IOriginalImageSource` and `IHmacSigner` here resolve from the same DI
-registrations `AddImageProcessing()` already sets up for your Umbraco app's
-own in-process image handling — no separate wiring needed, and safe to mount
-unconditionally regardless of `ImageProcessing:Mode`, since it costs nothing
-when nothing calls it and carries the same HMAC guard as the rest of your
-image requests.
+`ImageSourceMatcher`, `IHmacSigner` and the sources `GetOriginalImageSource`
+looks up all resolve from the same DI registrations `AddImageProcessing()`
+already sets up for your Umbraco app's own in-process image handling — no
+separate wiring needed, and safe to mount unconditionally regardless of
+`ImageProcessing:Mode`, since it costs nothing when nothing calls it and
+carries the same HMAC guard as the rest of your image requests. Two
+HTTP-proxy sources therefore never collide: `/media/x.jpg` and
+`/-/archive/x.jpg` reach the endpoint as two different paths and resolve to
+two different storages.
 
-On the standalone service side, swap `IOriginalImageSource` to the HTTP
-implementation instead of setting `OriginalsRootPath`:
+On the standalone service side, register the HTTP implementation for the
+source instead of local disk:
 
 ```csharp
 using Umbraco.Image.Processing.Core.DependencyInjection;
 
-imageProcessingBuilder.UseHttpOriginalImageSource(options =>
-    builder.Configuration.GetSection("ImageProcessing:Proxy").Bind(options));
+imageProcessingBuilder.UseHttpOriginalImageSource("/media", options =>
+    builder.Configuration.GetSection("ImageProcessing:Sources:0:Storage:HttpProxy").Bind(options));
 ```
 
 ```json
 {
   "ImageProcessing": {
-    "Proxy": {
-      "UmbracoBaseUrl": "<Umbraco's own internal base URL, reachable from the service>"
-    }
+    "Sources": [
+      {
+        "RoutePrefix": "/media",
+        "Storage": {
+          "Mode": "HttpProxy",
+          "HttpProxy": {
+            "UmbracoBaseUrl": "<Umbraco's own internal base URL, reachable from the service>"
+          }
+        }
+      }
+    ]
   }
 }
 ```
+
+Umbraco's endpoint receives the source's full path, route prefix included
+(`HttpOriginalImageSourceOptions.RoutePrefix`, which this overload sets to
+the prefix it registers for), and resolves it with the source's own
+`IOriginalImageSource` on its side. The two apps therefore need the same
+`Sources` list, as the "Several sources" section says.
 
 `UmbracoBaseUrl` points the opposite direction from `Standalone:BaseUrl`
 below: that one tells Umbraco where the service is, this one tells the
@@ -249,13 +394,17 @@ First, freshly generated `<img>` URLs point straight at the standalone
 service. `ImageProcessingOptions.ExternalBaseUrl` (bound here from
 `Standalone:BaseUrl` when unset) makes `IImageUrlGenerator` emit absolute URLs
 against the standalone host instead of a relative `/media/...` URL, so newly
-rendered pages skip a redirect round-trip entirely.
+rendered pages skip a redirect round-trip entirely. Only paths a configured
+source serves (`ImageProcessing:Sources`, or `/media` when none is set) get
+the host; anything else stays relative.
 
 Second, a redirect middleware catches everything else. URLs that weren't
 generated with the host baked in (image links embedded in rich text,
 hand-typed URLs, anything hitting `/media` on the Umbraco app directly) still
 resolve, because Umbraco mounts a small middleware that 302-redirects matching
-requests to the standalone service. This mirrors the redirect pattern from
+requests to the standalone service. It uses `ImageSourceMatcher`, the same
+longest-prefix, extension and `PathPattern` rules as the service, so it
+redirects exactly the paths the service would serve. This mirrors the redirect pattern from
 `imagesharp-standalone-service-plan.md` §3, made processor-agnostic. No
 processor-specific code is needed on the Umbraco side for this to work; the
 middleware just runs once, ahead of the CMS's own pipeline, and only in

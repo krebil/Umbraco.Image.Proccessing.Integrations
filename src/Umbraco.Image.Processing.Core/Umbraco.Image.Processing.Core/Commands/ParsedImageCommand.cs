@@ -2,7 +2,7 @@ namespace Umbraco.Image.Processing.Core.Commands;
 
 /// <summary>
 /// The canonical command model, parsed and validated from a request's query string but not yet
-/// resolved against the source image's dimensions/orientation (see
+/// resolved against the original image's dimensions/orientation (see
 /// <c>Umbraco.Image.Processing.Core.Processing.ImageCommandResolver</c>).
 /// </summary>
 public sealed record ParsedImageCommand

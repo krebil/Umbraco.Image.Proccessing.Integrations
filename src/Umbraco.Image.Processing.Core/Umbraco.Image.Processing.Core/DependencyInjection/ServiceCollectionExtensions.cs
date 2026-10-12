@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
 
@@ -18,11 +20,17 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IImageProcessingBuilder AddImageProcessing(this IServiceCollection services, Action<ImageProcessingOptions>? configure = null)
     {
-        services.AddOptions<ImageProcessingOptions>().Configure(options => configure?.Invoke(options));
+        // Validated when the host starts, so an unusable source list fails there and names the source.
+        services.AddOptions<ImageProcessingOptions>()
+            .Configure(options => configure?.Invoke(options))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ImageProcessingOptions>, ImageProcessingOptionsValidator>());
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IHmacSigner, HmacSigner>();
-        services.TryAddSingleton<IOriginalImageSource, LocalDiskOriginalImageSource>();
+        services.TryAddSingleton<ImageSourceMatcher>();
+        services.TryAddSingleton<IOriginalImageSource>(serviceProvider =>
+            new LocalDiskOriginalImageSource(serviceProvider.GetRequiredService<IOptions<ImageProcessingOptions>>().Value.OriginalsRootPath));
         services.TryAddSingleton<IDerivativeImageCache, LocalDiskDerivativeImageCache>();
 
         return new ImageProcessingBuilder(services);

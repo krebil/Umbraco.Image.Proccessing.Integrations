@@ -9,6 +9,49 @@ A pluggable image-processing abstraction for Umbraco.
 - [Standalone quickstart](docs/quickstart-standalone.md): run image processing as a separate
   deployment.
 
+## Sources
+
+One instance can serve images from several places. `ImageProcessing:Sources` lists them: each
+source has a `RoutePrefix` (whole segments, case-insensitive, longest match wins), an optional
+`PathPattern` that gates the path after the prefix, and its own original-image storage (local disk,
+Azure Blob, or HTTP proxy to Umbraco). The HMAC signature covers the request path as sent, so a URL
+signed as `/media/x.jpg` and requested as `/Media/x.jpg` is matched by the source and then refused
+with a 400; only an unsigned pass-through request is served under a differently cased prefix.
+With no sources configured, `/media` is served from local disk. See
+[Several sources](docs/quickstart-standalone.md#several-sources-serving-a-second-container).
+
+### Upgrading from 2.x
+
+3.0 replaces the single `ImageProcessing:RoutePrefix` and the service's `ImageProcessing:Storage`
+and `ImageProcessing:Proxy` settings with `ImageProcessing:Sources`:
+
+| 2.x | 3.0 |
+|---|---|
+| `RoutePrefix` | `Sources:N:RoutePrefix` |
+| `RoutePrefix` = `""` or `/` (a root source taking every path) | not accepted: every source needs a prefix such as `/media`, and an empty value counts as missing. The matcher, the options validator and the service refuse to start otherwise |
+| `Storage:Mode` (service) | `Sources:N:Storage:Mode` |
+| `Storage:Mode` (Umbraco sample: its own media storage, local disk or Blob) | `MediaStorage:Mode`, outside the `ImageProcessing` section, so the two apps' storage settings no longer share a name |
+| `Storage:AzureBlob:*` | `Sources:N:Storage:AzureBlob:*` |
+| `Proxy:UmbracoBaseUrl` | `Sources:N:Storage:HttpProxy:UmbracoBaseUrl` |
+| `OriginalsRootPath` (service) | `Sources:N:Storage:LocalDisk:RootPath` |
+| `/__image-origin/{path}` (the origin endpoint's request shape in HTTP-proxy mode) | `/__image-origin{routePrefix}/{path}`: the endpoint receives the source's full path and resolves that source, see the [standalone quickstart](docs/quickstart-standalone.md#http-proxy-mode-fetching-original-images-from-umbraco-over-http) |
+
+Upgrade both sides together: a 3.0 service sends the new origin request
+shape, which a 2.x-style endpoint resolves against the wrong path. A leftover
+2.x setting does not go unnoticed: the Umbraco sample refuses to start while
+`ImageProcessing:Storage:Mode` or `ImageProcessing:RoutePrefix` is still set,
+and the service logs a warning for a leftover `RoutePrefix`, `Storage`,
+`Proxy` or `OriginalsRootPath`.
+
+In code, `UseAzureBlobOriginalImageSource` and `UseHttpOriginalImageSource` gain overloads that
+take the route prefix they serve (the overloads without one still replace the default source), and
+`UseLocalDiskOriginalImageSource(routePrefix, …)` and `AddOriginalImageSource(routePrefix, …)` are
+new; the latter also comes as `AddOriginalImageSource<TOptions>(routePrefix, configure, factory)`,
+the shape the three `Use…` overloads are built on. `LocalDiskOriginalImageSource` now takes its
+root path directly. `ImageProcessingUrlGenerator` only makes URLs absolute (`ExternalBaseUrl`) for
+paths a configured source serves. Derivative cache keys now include the route prefix, so existing
+cached derivatives are regenerated once. URLs and HMAC signatures are unchanged.
+
 ## Supported processing commands
 
 The command surface matches ImageSharp.Web's `width`, `height`, `rmode`, `format`,

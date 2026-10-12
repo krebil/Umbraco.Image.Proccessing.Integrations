@@ -27,6 +27,8 @@
         <ProjectReference Include="..\Umbraco.Image.Processing.Service\Umbraco.Image.Processing.Service.csproj" />
         <ProjectReference Include="..\..\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions.csproj" />
         <ProjectReference Include="..\..\Umbraco.Image.Processing.IntegrationTests.Shared\Umbraco.Image.Processing.IntegrationTests.Shared.csproj" />
+        <!-- For Core.Tests' CapturingLoggerProvider, as AzureBlob.Tests references Core.Tests for its test support. -->
+        <ProjectReference Include="..\..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.Tests\Umbraco.Image.Processing.Core.Tests.csproj" />
     </ItemGroup>
 
 </Project>

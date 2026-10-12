@@ -1,18 +1,20 @@
 using ImageProcessingDemo;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
-using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.ImageFlow;
 using Umbraco.Image.Processing.SkiaSharp;
 using Umbraco.Image.Processing.UmbracoExtensions.DependencyInjection;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+RefuseRenamedSettings(builder.Configuration);
+
 IConfigurationSection imageProcessingSection = builder.Configuration.GetSection("ImageProcessing");
 var mode = imageProcessingSection.GetValue("Mode", ImageProcessingMode.InProcess);
 var processor = imageProcessingSection.GetValue<ImageProcessorKind?>("Processor")
     ?? throw new InvalidOperationException("ImageProcessing:Processor must be configured (e.g. \"SkiaSharp\" or \"ImageFlow\").");
-var storageMode = imageProcessingSection.GetValue("Storage:Mode", ImageStorageMode.LocalDisk);
+var storageMode = builder.Configuration.GetValue("MediaStorage:Mode", ImageStorageMode.LocalDisk);
 
 IUmbracoBuilder umbracoBuilder = builder.CreateUmbracoBuilder()
     .AddBackOffice()
@@ -22,8 +24,8 @@ IUmbracoBuilder umbracoBuilder = builder.CreateUmbracoBuilder()
 if (storageMode == ImageStorageMode.AzureBlob)
 {
     // Umbraco.StorageProviders.AzureBlob auto-binds AzureBlobFileSystemOptions from
-    // Umbraco:Storage:AzureBlob:Media (its own native config path — a different section from this
-    // repo's own ImageProcessing:Storage:AzureBlob, which the standalone Service's
+    // Umbraco:Storage:AzureBlob:Media (its own native config path — a different section from the
+    // standalone Service's ImageProcessing:Sources:N:Storage:AzureBlob, which its
     // AzureBlobOriginalImageSource reads separately). The two must point at the same container so
     // both sides read/write the same media (production-hardening ticket 11).
     umbracoBuilder.AddAzureBlobMediaFileSystem();
@@ -80,28 +82,18 @@ if (mode == ImageProcessingMode.InProcess)
 }
 else
 {
-    var standaloneOptions = new ImageProcessingOptions();
-    imageProcessingSection.Bind(standaloneOptions);
+    // The same matcher the URL generator uses, so the paths redirected here are the paths it makes absolute.
+    ImageSourceMatcher standaloneSources = app.Services.GetRequiredService<ImageSourceMatcher>();
     string standaloneBaseUrl = imageProcessingSection.GetValue<string>("Standalone:BaseUrl")
         ?? throw new InvalidOperationException("ImageProcessing:Standalone:BaseUrl must be configured when ImageProcessing:Mode is Standalone.");
 
-    // Redirects image requests to the standalone image-processing service instead of handling
-    // them here — see imagesharp-standalone-service-plan.md §3.2 for the pattern this mirrors.
+    // Redirects image requests under any configured source to the standalone image-processing service
+    // instead of handling them here — see imagesharp-standalone-service-plan.md §3.2 for the pattern this mirrors.
+    // A rejected path (dot segment, pattern timeout) is still the source's request: it goes to the
+    // service too, which refuses it, rather than on to this app's static files.
     app.Use(async (context, next) =>
     {
-        PathString path = context.Request.Path;
-        PathString remaining;
-        if (string.IsNullOrEmpty(standaloneOptions.RoutePrefix))
-        {
-            remaining = path;
-        }
-        else if (!path.StartsWithSegments(standaloneOptions.RoutePrefix, out remaining))
-        {
-            await next();
-            return;
-        }
-
-        if (!standaloneOptions.SupportedRequestExtensions.Contains(Path.GetExtension(remaining.Value ?? string.Empty)))
+        if (standaloneSources.Match(context.Request.Path).Outcome == ImageSourceMatchOutcome.NoMatch)
         {
             await next();
             return;
@@ -129,6 +121,25 @@ app.UseUmbraco()
 
 await app.RunAsync();
 
+// 3.0 renamed these. A leftover 2.x value would otherwise be ignored, and this sample would quietly
+// run on the defaults: local-disk media storage, the /media source.
+static void RefuseRenamedSettings(IConfiguration configuration)
+{
+    (string Old, string New)[] renamed =
+    [
+        ("ImageProcessing:Storage:Mode", "MediaStorage:Mode"),
+        ("ImageProcessing:RoutePrefix", "ImageProcessing:Sources:N:RoutePrefix"),
+    ];
+
+    foreach ((string old, string replacement) in renamed)
+    {
+        if (configuration.GetSection(old).Exists())
+        {
+            throw new InvalidOperationException($"{old} was renamed in 3.0; set {replacement} instead (see the README's 2.x to 3.0 mapping).");
+        }
+    }
+}
+
 /// <summary>
 /// Where this sample's own image requests are handled: in-process, alongside Umbraco, or
 /// redirected to a separately deployed standalone service.
@@ -150,8 +161,8 @@ internal enum ImageProcessorKind
 }
 
 /// <summary>
-/// Where this sample's media is physically stored. AzureBlob wires Umbraco's own media file system
-/// to Blob Storage (<c>Umbraco.StorageProviders.AzureBlob</c>) instead of local disk — orthogonal to
+/// Where this sample's media is physically stored (<c>MediaStorage:Mode</c>). AzureBlob wires Umbraco's
+/// own media file system to Blob Storage (<c>Umbraco.StorageProviders.AzureBlob</c>) instead of local disk — orthogonal to
 /// <see cref="ImageProcessingMode" />, which only governs how image *requests* are handled.
 /// </summary>
 internal enum ImageStorageMode

@@ -1,7 +1,9 @@
 namespace Umbraco.Image.Processing.Core.Storage;
 
 /// <summary>
-/// Reads original media by request path. This POC's only implementation is local disk.
+/// An image source's original-image storage: reads the unprocessed file for the request path after the
+/// source's route prefix. Registered per route prefix (local disk, Azure Blob, or an HTTP proxy to Umbraco),
+/// with the unkeyed registration as the default for sources without storage of their own.
 /// </summary>
 public interface IOriginalImageSource
 {

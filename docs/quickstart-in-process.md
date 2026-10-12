@@ -88,7 +88,6 @@ await app.RunAsync();
 ```json
 {
   "ImageProcessing": {
-    "RoutePrefix": "/media",
     "OriginalsRootPath": "wwwroot/media",
     "DerivativeCacheRootPath": "App_Data/image-cache",
     "HmacSecretKey": "<a base64-encoded random key, or omit to disable signing>"
@@ -102,11 +101,16 @@ set it yourself. If you enable it, also set `Umbraco:CMS:Imaging:HMACSecretKey`
 to the same value, so Umbraco's own `<img>`/`<picture>` helpers sign URLs the
 middleware will accept.
 
+With no `Sources` configured, the middleware serves `/media` from the default
+local-disk source at `OriginalsRootPath`. To serve more routes, list them in
+`ImageProcessing:Sources` and register storage per route prefix; see [Several
+sources](quickstart-standalone.md#several-sources-serving-a-second-container).
+
 `OriginalsRootPath` and `DerivativeCacheRootPath` default to local-disk paths.
 If Umbraco's own media is Blob-backed instead, `UseAzureBlobOriginalImageSource()`
 works in-process too — `IOriginalImageSource` is just a registered service,
 independent of in-process vs. standalone. See [Quickstart: standalone image
-processing](quickstart-standalone.md#blob-mode-resolving-originals-from-azure-blob-storage)
+processing](quickstart-standalone.md#blob-mode-reading-original-images-from-azure-blob-storage)
 for the setup; everything there applies here unchanged.
 
 ## 5. The drop-in story: swapping processors

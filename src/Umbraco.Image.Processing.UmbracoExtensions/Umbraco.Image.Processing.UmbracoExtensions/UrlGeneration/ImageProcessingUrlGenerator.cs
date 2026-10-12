@@ -7,6 +7,7 @@ using Umbraco.Cms.Core.Media;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Image.Processing.Core.Commands;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 
 namespace Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
@@ -14,12 +15,14 @@ namespace Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 /// <summary>
 /// The single <see cref="IImageUrlGenerator" /> shared by every processor — output URL shape never
 /// varies by which processor is active, so there's exactly one implementation. Produces Umbraco's
-/// existing <c>/media/...?width=...&amp;cc=...</c> shape, HMAC-signed when configured.
+/// existing <c>/media/...?width=...&amp;cc=...</c> shape, HMAC-signed when configured. Takes the app's one
+/// <see cref="ImageSourceMatcher" />, so the paths it points at the service are the paths the service serves.
 /// </summary>
-public sealed class ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions> options, IHmacSigner hmacSigner) : IImageUrlGenerator
+public sealed class ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions> options, IHmacSigner hmacSigner, ImageSourceMatcher sourceMatcher) : IImageUrlGenerator
 {
     private readonly ImageProcessingOptions _options = options.Value;
     private readonly IHmacSigner _hmacSigner = hmacSigner;
+    private readonly ImageSourceMatcher _sourceMatcher = sourceMatcher;
 
     public IEnumerable<string> SupportedImageFileTypes => _options.SupportedRequestExtensions.Select(e => e.TrimStart('.'));
 
@@ -85,12 +88,19 @@ public sealed class ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions>
             }
         }
 
-        if (!string.IsNullOrEmpty(_options.ExternalBaseUrl))
+        // Only paths the service actually serves go to it; anything else stays relative to this app.
+        if (!string.IsNullOrEmpty(_options.ExternalBaseUrl) && IsServedBySource(options.ImageUrl))
         {
             url = _options.ExternalBaseUrl.TrimEnd('/') + url;
         }
 
         return url;
+    }
+
+    private bool IsServedBySource(string imageUrl)
+    {
+        string path = GetPathOnly(imageUrl);
+        return path.StartsWith('/') && _sourceMatcher.TryMatch(new PathString(path), out _);
     }
 
     private static string GetPathOnly(string imageUrl) => imageUrl.Split('?', 2)[0];

@@ -2,23 +2,27 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Umbraco.Image.Processing.Core.Commands;
+using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Media;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Processing;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.Core.Storage;
 
 namespace Umbraco.Image.Processing.Core.Middleware;
 
 /// <summary>
-/// Parses, authorizes, and serves image requests: mountable both in-process (into the existing
-/// Umbraco pipeline, under <see cref="ImageProcessingOptions.RoutePrefix" />) and standalone (into a
-/// bare ASP.NET Core app, with an empty <see cref="ImageProcessingOptions.RoutePrefix" />).
+/// Parses, authorizes, and serves image requests under the configured
+/// <see cref="ImageProcessingOptions.Sources" />: mountable both in-process (into the existing Umbraco
+/// pipeline) and standalone (into a bare ASP.NET Core app). Each request is served from the original-image
+/// storage of the source <see cref="ImageSourceMatcher" /> picks for its path.
 /// </summary>
 public sealed class ImageProcessingMiddleware(
     RequestDelegate next,
     IOptions<ImageProcessingOptions> options,
-    IOriginalImageSource originalImageSource,
+    ImageSourceMatcher sourceMatcher,
+    IServiceProvider serviceProvider,
     IDerivativeImageCache derivativeImageCache,
     IHmacSigner hmacSigner,
     IImageProcessor processor,
@@ -26,7 +30,10 @@ public sealed class ImageProcessingMiddleware(
 {
     private readonly RequestDelegate _next = next;
     private readonly ImageProcessingOptions _options = options.Value;
-    private readonly IOriginalImageSource _originalImageSource = originalImageSource;
+    private readonly ImageSourceMatcher _sourceMatcher = sourceMatcher;
+    private readonly Dictionary<string, IOriginalImageSource> _originalImageSources = sourceMatcher.RoutePrefixes.ToDictionary(
+        prefix => prefix,
+        serviceProvider.GetOriginalImageSource);
     private readonly IDerivativeImageCache _derivativeImageCache = derivativeImageCache;
     private readonly IHmacSigner _hmacSigner = hmacSigner;
     private readonly IImageProcessor _processor = processor;
@@ -34,11 +41,21 @@ public sealed class ImageProcessingMiddleware(
 
     public async Task InvokeAsync(HttpContext context)
     {
-        if (!IsImageRequest(context.Request.Path, out string relativePath))
+        ImageSourceMatchResult result = _sourceMatcher.Match(context.Request.Path);
+        if (result.Outcome == ImageSourceMatchOutcome.NoMatch)
         {
             await _next(context);
             return;
         }
+
+        if (result.Outcome == ImageSourceMatchOutcome.Rejected)
+        {
+            Refuse(context, result);
+            return;
+        }
+
+        ImageSourceMatch match = result.Match!;
+        string relativePath = match.RelativePath;
 
         ParsedImageCommand parsed = ImageCommandParser.Parse(context.Request.Query, _options);
 
@@ -54,7 +71,7 @@ public sealed class ImageProcessingMiddleware(
             return;
         }
 
-        Stream? source = await _originalImageSource.OpenReadAsync(relativePath, context.RequestAborted);
+        Stream? source = await _originalImageSources[match.RoutePrefix].OpenReadAsync(relativePath, context.RequestAborted);
         if (source is null)
         {
             await _next(context);
@@ -80,7 +97,7 @@ public sealed class ImageProcessingMiddleware(
 
             ResolvedImageCommand resolved = ImageCommandResolver.Resolve(parsed, _options, header);
 
-            string cacheKey = $"{relativePath}?{context.Request.QueryString}";
+            string cacheKey = $"{match.RoutePrefix}{relativePath}?{context.Request.QueryString}";
             Stream? cached = await _derivativeImageCache.TryOpenReadAsync(cacheKey, context.RequestAborted);
             if (cached is not null)
             {
@@ -103,28 +120,24 @@ public sealed class ImageProcessingMiddleware(
         }
     }
 
-    private bool IsImageRequest(PathString path, out string relativePath)
+    /// <summary>
+    /// Ends a request whose source could not or must not check it. Passing it on is not an option:
+    /// in-process, the next handler is typically static files, which would serve the raw file under
+    /// <c>wwwroot/&lt;prefix&gt;</c> past the source's gate.
+    /// </summary>
+    private void Refuse(HttpContext context, ImageSourceMatchResult result)
     {
-        relativePath = string.Empty;
-
-        PathString remaining;
-        if (string.IsNullOrEmpty(_options.RoutePrefix))
+        if (result.Rejection == ImageSourceRejection.PatternTimeout)
         {
-            // Standalone mode: the whole app is the image service, so every path is a candidate.
-            remaining = path;
-        }
-        else if (!path.StartsWithSegments(_options.RoutePrefix, out remaining))
-        {
-            return false;
+            // Answered like a pattern miss, so the gate's shape is not observable from outside; the
+            // warning is for the operator, because a pattern that times out is a pattern to fix.
+            _logger.LogWarning("The PathPattern of image source {RoutePrefix} timed out on {Path}; the request was refused.", result.RoutePrefix, context.Request.Path);
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
         }
 
-        if (!_options.SupportedRequestExtensions.Contains(Path.GetExtension(remaining.Value ?? string.Empty)))
-        {
-            return false;
-        }
-
-        relativePath = remaining.Value ?? string.Empty;
-        return true;
+        _logger.LogInformation("Refused image request {Path} for source {RoutePrefix}: {Rejection}.", context.Request.Path, result.RoutePrefix, result.Rejection);
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
     }
 
     private async Task WriteResponseAsync(HttpContext context, Stream content, string contentType)

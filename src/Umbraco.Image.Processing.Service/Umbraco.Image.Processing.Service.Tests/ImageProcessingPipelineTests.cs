@@ -1,7 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using SkiaSharp;
 using Umbraco.Image.Processing.IntegrationTests.Shared;
 using Xunit;
@@ -167,6 +166,65 @@ public sealed class ImageProcessingPipelineTests : IDisposable
         Assert.Equal(original, bytes);
     }
 
+    [Fact]
+    public async Task SignedRequestUnderADifferentlyCasedPrefix_IsRejected()
+    {
+        // The prefix match ignores case, but the signature covers the request path as sent: a URL
+        // signed as /media/... and requested as /Media/... is this source's request and is refused.
+        await WriteSourceAsync("casing.png", TestImages.FourCornerPngBytes());
+
+        await using WebApplicationFactory<Program> factory = CreateFactory();
+        using HttpClient client = factory.CreateClient();
+        var urls = new SignedRequestUrlBuilder(_hmacSecretKey);
+
+        string recased = urls.Signed("/media/casing.png", ("width", "1")).Replace("/media/", "/Media/", StringComparison.Ordinal);
+        using HttpResponseMessage response = await client.GetAsync(recased);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PassThroughRequestUnderADifferentlyCasedPrefix_IsServed()
+    {
+        // No processing commands, so nothing is signed: the case-insensitive prefix match is all that applies.
+        byte[] original = TestImages.FourCornerPngBytes();
+        await WriteSourceAsync("casing-passthrough.png", original);
+
+        await using WebApplicationFactory<Program> factory = CreateFactory();
+        using HttpClient client = factory.CreateClient();
+
+        using HttpResponseMessage response = await client.GetAsync("/MEDIA/casing-passthrough.png");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(original, await response.Content.ReadAsByteArrayAsync());
+    }
+
+    [Theory]
+    [InlineData("/media/..%2Fsecret.png")]
+    [InlineData("/media/..%5Csecret.png")]
+    [InlineData("/media/..%252Fsecret.png")]
+    [InlineData("/media/1234%2F..%2F..%2Fsecret.png")]
+    public async Task EncodedTraversalRequest_IsRejected(string path)
+    {
+        // The secret file sits next to the media root, where a decoded ".." would reach it.
+        string secretPath = Path.Combine(Path.GetDirectoryName(_mediaRoot)!, "secret.png");
+        await File.WriteAllBytesAsync(secretPath, TestImages.FourCornerPngBytes());
+        try
+        {
+            await using WebApplicationFactory<Program> factory = CreateFactory();
+            using HttpClient client = factory.CreateClient();
+
+            using HttpResponseMessage response = await client.GetAsync(path);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Empty(await response.Content.ReadAsByteArrayAsync());
+        }
+        finally
+        {
+            File.Delete(secretPath);
+        }
+    }
+
     private async Task WriteSourceAsync(string relativePath, byte[] bytes)
     {
         string fullPath = Path.Combine(_mediaRoot, relativePath);
@@ -175,11 +233,10 @@ public sealed class ImageProcessingPipelineTests : IDisposable
     }
 
     private WebApplicationFactory<Program> CreateFactory() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ImageProcessing:OriginalsRootPath"] = _mediaRoot,
-                ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
-                ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
-            })));
+        ServiceFactory.Create(new Dictionary<string, string?>
+        {
+            ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
+            ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
+            ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
+        });
 }

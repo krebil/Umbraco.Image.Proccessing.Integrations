@@ -1,7 +1,12 @@
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
+using Umbraco.Cms.Core.Media;
 using Umbraco.Cms.Core.Models;
+using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
+using Umbraco.Image.Processing.UmbracoExtensions.DependencyInjection;
 using Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 using Xunit;
 using MicrosoftOptions = Microsoft.Extensions.Options.Options;
@@ -13,7 +18,27 @@ public class ImageProcessingUrlGeneratorTests
     private static ImageProcessingUrlGenerator CreateGenerator(byte[]? hmacSecret = null, string? externalBaseUrl = null)
     {
         var options = MicrosoftOptions.Create(new ImageProcessingOptions { HmacSecretKey = hmacSecret, ExternalBaseUrl = externalBaseUrl });
-        return new ImageProcessingUrlGenerator(options, new HmacSigner(options));
+        return new ImageProcessingUrlGenerator(options, new HmacSigner(options), new ImageSourceMatcher(options));
+    }
+
+    [Fact]
+    public void ResolvesFromTheContainer_WithTheRegisteredSources()
+    {
+        // The generator takes the one ImageSourceMatcher AddImageProcessing() registers, so the URLs it
+        // makes absolute are exactly the paths the middleware and any redirect serve.
+        var services = new ServiceCollection();
+        services.AddImageProcessing(options =>
+        {
+            options.ExternalBaseUrl = "http://images.example";
+            options.Sources = [new ImageSourceOptions { RoutePrefix = "/media" }, new ImageSourceOptions { RoutePrefix = "/-/archive" }];
+        }).AddUmbracoImageProcessing();
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IImageUrlGenerator generator = provider.GetRequiredService<IImageUrlGenerator>();
+
+        Assert.IsType<ImageProcessingUrlGenerator>(generator);
+        Assert.Equal("http://images.example/-/archive/foo.jpg?width=300", generator.GetImageUrl(new ImageUrlGenerationOptions("/-/archive/foo.jpg") { Width = 300 }));
+        Assert.Equal("/uploads/foo.jpg?width=300", generator.GetImageUrl(new ImageUrlGenerationOptions("/uploads/foo.jpg") { Width = 300 }));
     }
 
     [Fact]
@@ -140,5 +165,28 @@ public class ImageProcessingUrlGeneratorTests
         string? url = CreateGenerator().GetImageUrl(new ImageUrlGenerationOptions("/media/foo.jpg") { Width = 300 });
 
         Assert.Equal("/media/foo.jpg?width=300", url);
+    }
+
+    [Theory]
+    [InlineData("/media/foo.jpg", "http://images.example/media/foo.jpg?width=300")]
+    [InlineData("/-/archive/0123456789abcdef0123456789abcdef/assets/0123456789abcdef0123456789abcdef.png", "http://images.example/-/archive/0123456789abcdef0123456789abcdef/assets/0123456789abcdef0123456789abcdef.png?width=300")]
+    [InlineData("/-/archive/0123456789abcdef0123456789abcdef/pages/foo.png", "/-/archive/0123456789abcdef0123456789abcdef/pages/foo.png?width=300")]
+    [InlineData("/uploads/foo.jpg", "/uploads/foo.jpg?width=300")]
+    public void PrefixesExternalBaseUrlOnlyForPathsAConfiguredSourceServes(string imageUrl, string expected)
+    {
+        var options = MicrosoftOptions.Create(new ImageProcessingOptions
+        {
+            ExternalBaseUrl = "http://images.example",
+            Sources =
+            [
+                new ImageSourceOptions { RoutePrefix = "/media" },
+                new ImageSourceOptions { RoutePrefix = "/-/archive", PathPattern = @"^[0-9a-f]{32}/assets/[0-9a-f]{32}\.[a-z0-9]{1,10}$" },
+            ],
+        });
+        var generator = new ImageProcessingUrlGenerator(options, new HmacSigner(options), new ImageSourceMatcher(options));
+
+        string? url = generator.GetImageUrl(new ImageUrlGenerationOptions(imageUrl) { Width = 300 });
+
+        Assert.Equal(expected, url);
     }
 }

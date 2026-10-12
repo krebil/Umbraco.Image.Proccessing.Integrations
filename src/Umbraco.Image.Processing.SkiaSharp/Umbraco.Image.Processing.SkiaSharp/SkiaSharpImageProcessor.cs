@@ -26,7 +26,7 @@ public sealed class SkiaSharpImageProcessor : IImageProcessor
         cancellationToken.ThrowIfCancellationRequested();
 
         using SKBitmap decoded = SKBitmap.Decode(source) ??
-            throw new InvalidOperationException("SkiaSharp could not decode the source image.");
+            throw new InvalidOperationException("SkiaSharp could not decode the original image.");
 
         SKBitmap current = decoded;
         var owned = new List<SKBitmap>();
