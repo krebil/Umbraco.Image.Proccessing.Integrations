@@ -1,0 +1,14 @@
+# Store and check out text files with LF on every OS, so macOS and Windows produce the same bytes.
+* text=auto eol=lf
+
+# Binary files: no line-ending conversion, no textual diff.
+*.ico   binary
+*.jpg   binary
+*.jpeg  binary
+*.png   binary
+*.gif   binary
+*.webp  binary
+*.avif  binary
+*.bmp   binary
+*.tif   binary
+*.tiff  binary

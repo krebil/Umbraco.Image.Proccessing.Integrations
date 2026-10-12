@@ -1,0 +1,5 @@
+root = true
+
+# Matches .gitattributes, so editors write LF before Git sees the file.
+[*]
+end_of_line = lf
