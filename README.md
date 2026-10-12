@@ -12,8 +12,11 @@ A pluggable image-processing abstraction for Umbraco.
 ## Sources
 
 One instance can serve images from several places. `ImageProcessing:Sources` lists them: each
-source has a `RoutePrefix` (longest match wins), an optional `PathPattern` that gates the path after
-the prefix, and its own original-image storage (local disk, Azure Blob, or HTTP proxy to Umbraco).
+source has a `RoutePrefix` (whole segments, case-insensitive, longest match wins), an optional
+`PathPattern` that gates the path after the prefix, and its own original-image storage (local disk,
+Azure Blob, or HTTP proxy to Umbraco). The HMAC signature covers the request path as sent, so a URL
+signed as `/media/x.jpg` and requested as `/Media/x.jpg` is matched by the source and then refused
+with a 400; only an unsigned pass-through request is served under a differently cased prefix.
 With no sources configured, `/media` is served from local disk. See
 [Several sources](docs/quickstart-standalone.md#several-sources-serving-a-second-container).
 

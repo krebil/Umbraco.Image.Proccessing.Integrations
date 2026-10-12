@@ -166,6 +166,39 @@ public sealed class ImageProcessingPipelineTests : IDisposable
         Assert.Equal(original, bytes);
     }
 
+    [Fact]
+    public async Task SignedRequestUnderADifferentlyCasedPrefix_IsRejected()
+    {
+        // The prefix match ignores case, but the signature covers the request path as sent: a URL
+        // signed as /media/... and requested as /Media/... is this source's request and is refused.
+        await WriteSourceAsync("casing.png", TestImages.FourCornerPngBytes());
+
+        await using WebApplicationFactory<Program> factory = CreateFactory();
+        using HttpClient client = factory.CreateClient();
+        var urls = new SignedRequestUrlBuilder(_hmacSecretKey);
+
+        string recased = urls.Signed("/media/casing.png", ("width", "1")).Replace("/media/", "/Media/", StringComparison.Ordinal);
+        using HttpResponseMessage response = await client.GetAsync(recased);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PassThroughRequestUnderADifferentlyCasedPrefix_IsServed()
+    {
+        // No processing commands, so nothing is signed: the case-insensitive prefix match is all that applies.
+        byte[] original = TestImages.FourCornerPngBytes();
+        await WriteSourceAsync("casing-passthrough.png", original);
+
+        await using WebApplicationFactory<Program> factory = CreateFactory();
+        using HttpClient client = factory.CreateClient();
+
+        using HttpResponseMessage response = await client.GetAsync("/MEDIA/casing-passthrough.png");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(original, await response.Content.ReadAsByteArrayAsync());
+    }
+
     [Theory]
     [InlineData("/media/..%2Fsecret.png")]
     [InlineData("/media/..%5Csecret.png")]
