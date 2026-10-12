@@ -41,21 +41,29 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     /// <summary>
     /// Starts the whole graph. <paramref name="storageMode" /> is <c>"LocalDisk"</c> (default),
     /// <c>"AzureBlob"</c>, or <c>"HttpProxy"</c> — forwarded straight to <c>AppHost.cs</c>'s own
-    /// <c>Storage:Mode</c> switch. Always runs Umbraco in Standalone image-processing mode: LocalDisk
-    /// mode's redirect-to-Service behavior, Blob mode, and HttpProxy mode's reverse fetch all only
-    /// matter when Umbraco isn't handling image requests itself.
+    /// <c>Storage:Mode</c> switch. <paramref name="secondSourceRootPath" />, when set, adds the AppHost's
+    /// opt-in second source (<c>/-/archive</c>, pattern-gated, local disk at that directory) to both apps.
+    /// Always runs Umbraco in Standalone image-processing mode: LocalDisk mode's redirect-to-Service
+    /// behavior, Blob mode, and HttpProxy mode's reverse fetch all only matter when Umbraco isn't handling
+    /// image requests itself.
     /// </summary>
-    public async Task StartAsync(string storageMode = "LocalDisk", CancellationToken cancellationToken = default)
+    public async Task StartAsync(string storageMode = "LocalDisk", string? secondSourceRootPath = null, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
         string dbConnectionString = $"Data Source={_dbPath};Cache=Shared;Foreign Keys=True;Pooling=True";
 
-        IDistributedApplicationTestingBuilder builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Umbraco_Image_Processing_AppHost>(
+        List<string> args =
         [
             "--ImageProcessing:Mode=Standalone",
             $"--Storage:Mode={storageMode}",
             $"--ConnectionStrings:umbracoDbDSN={dbConnectionString}",
-        ], cancellationToken);
+        ];
+        if (secondSourceRootPath is not null)
+        {
+            args.Add($"--SecondSource:RootPath={secondSourceRootPath}");
+        }
+
+        IDistributedApplicationTestingBuilder builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Umbraco_Image_Processing_AppHost>([.. args], cancellationToken);
 
         _app = await builder.BuildAsync(cancellationToken);
         await _app.StartAsync(cancellationToken);

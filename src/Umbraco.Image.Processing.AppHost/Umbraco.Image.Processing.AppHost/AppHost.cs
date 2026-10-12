@@ -83,6 +83,29 @@ else if (storageMode == "HttpProxy")
     imageProcessingService.WithEnvironment("ImageProcessing__Sources__0__Storage__Mode", "HttpProxy");
 }
 
+// Opt-in second source: --SecondSource:RootPath=<directory> makes the Service serve /-/archive from that
+// directory, gated by a path pattern, and tells Umbraco about both sources, so its URL generator and
+// its redirect send exactly the paths the Service serves. Umbraco gets source 0 spelled out too: its
+// appsettings.json lists no sources, and a list with only index 1 would drop /media. Driven by the
+// E2E suite; harmless when absent.
+string? secondSourceRootPath = builder.Configuration["SecondSource:RootPath"];
+if (!string.IsNullOrEmpty(secondSourceRootPath))
+{
+    const string secondSourcePrefix = "/-/archive";
+    const string secondSourcePattern = @"^[0-9a-f]{32}/assets/[0-9a-f]{32}\.[a-z0-9]{1,10}$";
+
+    imageProcessingService
+        .WithEnvironment("ImageProcessing__Sources__1__RoutePrefix", secondSourcePrefix)
+        .WithEnvironment("ImageProcessing__Sources__1__PathPattern", secondSourcePattern)
+        .WithEnvironment("ImageProcessing__Sources__1__Storage__Mode", "LocalDisk")
+        .WithEnvironment("ImageProcessing__Sources__1__Storage__LocalDisk__RootPath", secondSourceRootPath);
+
+    umbraco
+        .WithEnvironment("ImageProcessing__Sources__0__RoutePrefix", "/media")
+        .WithEnvironment("ImageProcessing__Sources__1__RoutePrefix", secondSourcePrefix)
+        .WithEnvironment("ImageProcessing__Sources__1__PathPattern", secondSourcePattern);
+}
+
 // Opt-in database override: absent for normal `dotnet run` (Umbraco keeps its own checked-in SQLite
 // connection string, appsettings.json), but lets a consumer point this app's database anywhere —
 // used by the E2E test project to run each test against an isolated temp SQLite file instead of the

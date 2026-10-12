@@ -26,6 +26,7 @@
              stand-in: this suite's whole point is exercising the real multi-process graph, not a subset of it. -->
         <ProjectReference Include="..\Umbraco.Image.Processing.AppHost\Umbraco.Image.Processing.AppHost\Umbraco.Image.Processing.AppHost.csproj" />
         <ProjectReference Include="..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj" />
+        <ProjectReference Include="..\Umbraco.Image.Processing.IntegrationTests.Shared\Umbraco.Image.Processing.IntegrationTests.Shared.csproj" />
         <ProjectReference Include="..\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions\Umbraco.Image.Processing.UmbracoExtensions.csproj" />
     </ItemGroup>
 
