@@ -5,7 +5,7 @@ using Umbraco.Image.Processing.Core.Options;
 namespace Umbraco.Image.Processing.Core.Processing;
 
 /// <summary>
-/// Resolves a <see cref="ParsedImageCommand" /> against the source image's header info into a
+/// Resolves a <see cref="ParsedImageCommand" /> against the original image's header info into a
 /// <see cref="ResolvedImageCommand" /> ready for an <see cref="IImageProcessor" />.
 /// </summary>
 public static class ImageCommandResolver

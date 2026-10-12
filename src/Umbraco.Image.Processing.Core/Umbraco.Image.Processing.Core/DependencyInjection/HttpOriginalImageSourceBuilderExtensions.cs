@@ -11,7 +11,7 @@ public static class HttpOriginalImageSourceBuilderExtensions
     /// Swaps the original-image source from Core's default (local disk) to
     /// <see cref="HttpOriginalImageSource" />, for deployments where Umbraco and the standalone Service
     /// are separate processes with no shared disk/volume and Umbraco's media isn't Blob-backed either —
-    /// the Service fetches originals from Umbraco itself over HTTP instead. See
+    /// the Service fetches original images from Umbraco itself over HTTP instead. See
     /// <see cref="HttpOriginalImageSource" />'s own remarks for how this avoids looping back through
     /// Umbraco's Standalone-mode redirect middleware.
     /// </summary>
@@ -37,7 +37,7 @@ public static class HttpOriginalImageSourceBuilderExtensions
     }
 
     /// <summary>
-    /// Fetches the originals of the source at <paramref name="routePrefix" /> from Umbraco over HTTP, as
+    /// Fetches the original images of the source at <paramref name="routePrefix" /> from Umbraco over HTTP, as
     /// <see cref="UseHttpOriginalImageSource(IImageProcessingBuilder, Action{HttpOriginalImageSourceOptions})" />
     /// does for the default source. Umbraco's origin endpoint receives the source's full path, prefix
     /// included (<see cref="HttpOriginalImageSourceOptions.RoutePrefix" /> defaults to <paramref name="routePrefix" />),

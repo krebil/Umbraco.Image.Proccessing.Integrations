@@ -20,7 +20,7 @@ public sealed class AzureBlobCacheOptions
     /// <summary>
     /// The container derivative output is cached into. Created automatically on first use if it
     /// doesn't already exist. Deliberately its own container, separate from wherever Umbraco's media
-    /// originals live — <c>ClearAsync</c>/<c>EvictExpiredAsync</c> enumerate and delete everything in
+    /// original images live — <c>ClearAsync</c>/<c>EvictExpiredAsync</c> enumerate and delete everything in
     /// this container, which would be unsafe if it were shared with Umbraco's own media.
     /// </summary>
     public string ContainerName { get; set; } = "image-derivative-cache";

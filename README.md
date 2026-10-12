@@ -33,7 +33,7 @@ and `ImageProcessing:Proxy` settings with `ImageProcessing:Sources`:
 | `Storage:AzureBlob:*` | `Sources:N:Storage:AzureBlob:*` |
 | `Proxy:UmbracoBaseUrl` | `Sources:N:Storage:HttpProxy:UmbracoBaseUrl` |
 | `OriginalsRootPath` (service) | `Sources:N:Storage:LocalDisk:RootPath` |
-| `/__image-origin/{path}` (the origin endpoint's request shape in HTTP-proxy mode) | `/__image-origin{routePrefix}/{path}`: the endpoint receives the source's full path and resolves that source, see the [standalone quickstart](docs/quickstart-standalone.md#http-proxy-mode-fetching-originals-from-umbraco-over-http) |
+| `/__image-origin/{path}` (the origin endpoint's request shape in HTTP-proxy mode) | `/__image-origin{routePrefix}/{path}`: the endpoint receives the source's full path and resolves that source, see the [standalone quickstart](docs/quickstart-standalone.md#http-proxy-mode-fetching-original-images-from-umbraco-over-http) |
 
 Upgrade both sides together: a 3.0 service sends the new origin request
 shape, which a 2.x-style endpoint resolves against the wrong path. A leftover

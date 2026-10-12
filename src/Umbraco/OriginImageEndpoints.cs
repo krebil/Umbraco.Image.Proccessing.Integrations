@@ -7,7 +7,7 @@ using Umbraco.Image.Processing.Core.Storage;
 namespace ImageProcessingDemo;
 
 /// <summary>
-/// Serves raw (unprocessed) originals to a standalone Service configured with
+/// Serves raw (unprocessed) original images to a standalone Service configured with
 /// <c>HttpOriginalImageSource</c> — for deployments where Umbraco and the Service are separate
 /// processes with no shared disk/volume and Umbraco's media isn't Blob-backed either
 /// (production-hardening ticket 12). Mounted at <see cref="HttpOriginalImageSource.OriginRoutePrefix" />,

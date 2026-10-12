@@ -1,7 +1,7 @@
 namespace Umbraco.Image.Processing.Core.Options;
 
 /// <summary>
-/// One route the middleware serves images under. Where its originals come from is registered
+/// One image source: a route the middleware serves images under. Where its original images come from is registered
 /// separately, keyed by <see cref="RoutePrefix" /> (e.g. <c>UseAzureBlobOriginalImageSource(routePrefix, ...)</c>);
 /// a source with no storage of its own falls back to the default <c>IOriginalImageSource</c>.
 /// </summary>

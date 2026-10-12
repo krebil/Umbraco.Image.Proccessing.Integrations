@@ -8,7 +8,7 @@ using Umbraco.Image.Processing.Core.Security;
 namespace Umbraco.Image.Processing.Core.Storage;
 
 /// <summary>
-/// Reads originals over HTTP from Umbraco's own raw-original endpoint — for the deployment shape
+/// Reads original images over HTTP from Umbraco's own raw-original endpoint — for the deployment shape
 /// neither <c>LocalDiskOriginalImageSource</c> nor <c>AzureBlobOriginalImageSource</c> covers: Umbraco
 /// and the standalone Service are genuinely separate deployments with no shared disk/volume, and
 /// Umbraco's media isn't Blob-backed either. The Service has to ask Umbraco itself for the bytes.

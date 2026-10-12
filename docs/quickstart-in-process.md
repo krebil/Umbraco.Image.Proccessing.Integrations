@@ -110,7 +110,7 @@ sources](quickstart-standalone.md#several-sources-serving-a-second-container).
 If Umbraco's own media is Blob-backed instead, `UseAzureBlobOriginalImageSource()`
 works in-process too — `IOriginalImageSource` is just a registered service,
 independent of in-process vs. standalone. See [Quickstart: standalone image
-processing](quickstart-standalone.md#blob-mode-resolving-originals-from-azure-blob-storage)
+processing](quickstart-standalone.md#blob-mode-reading-original-images-from-azure-blob-storage)
 for the setup; everything there applies here unchanged.
 
 ## 5. The drop-in story: swapping processors

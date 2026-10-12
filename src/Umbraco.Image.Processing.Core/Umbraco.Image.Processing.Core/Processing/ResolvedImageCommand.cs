@@ -23,7 +23,7 @@ public sealed record ResolvedImageCommand
     public ImageColor? BackgroundColor { get; init; }
 
     /// <summary>
-    /// The explicit <c>cc</c> crop rectangle, in the source image's stored (pre-orientation) pixel
+    /// The explicit <c>cc</c> crop rectangle, in the original image's stored (pre-orientation) pixel
     /// space, or <see langword="null" /> when no <c>cc</c> command was given.
     /// </summary>
     public CropRectangle? Crop { get; init; }

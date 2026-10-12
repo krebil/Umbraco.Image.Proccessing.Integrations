@@ -23,8 +23,8 @@ dotnet add package Krebil.Umbraco.Image.Processing.SkiaSharp
 ```
 
 `Program.cs` stays small: Core's middleware *is* the whole app. Each
-**source** is a route prefix plus the storage its originals come from; the
-storage is registered under that route prefix.
+**image source** is a route prefix plus the storage its original images come
+from; the storage is registered under that route prefix.
 
 ```csharp
 using Umbraco.Image.Processing.Core.DependencyInjection;
@@ -39,7 +39,7 @@ IImageProcessingBuilder imageProcessingBuilder = builder.Services
 imageProcessingBuilder.UseSkiaSharp(); // or .UseImageFlow()
 
 imageProcessingBuilder.UseLocalDiskOriginalImageSource("/media", options =>
-    options.RootPath = "<path or mount to the same media originals Umbraco reads>");
+    options.RootPath = "<path or mount to the same original images Umbraco reads>");
 
 WebApplication app = builder.Build();
 
@@ -67,7 +67,11 @@ await app.RunAsync();
 - `RoutePrefix` (required): the path prefix, e.g. `/media`, matching the path
   shape Umbraco's own `<img>` URLs use. Prefixes match whole path segments,
   case-insensitively, and the **longest** matching prefix wins. `"/"` matches
-  every path.
+  every path. The HMAC signature covers the request path as sent, though: a
+  URL signed as `/media/x.jpg` and requested as `/Media/x.jpg` is matched by
+  the source and then refused with a 400. Only an unsigned pass-through
+  request (no processing commands) is served under a differently cased
+  prefix.
 - `PathPattern` (optional): a regular expression the path *after* the prefix
   (without its leading `/`) must match **in full**. Requests that don't match
   are not served by this source, and don't fall through to a shorter prefix
@@ -104,7 +108,7 @@ each source's storage from configuration instead, under
         "RoutePrefix": "/media",
         "Storage": {
           "Mode": "LocalDisk",
-          "LocalDisk": { "RootPath": "<path to the media originals>" }
+          "LocalDisk": { "RootPath": "<path to the original images>" }
         }
       }
     ]
@@ -135,7 +139,7 @@ filesystem, which stops being true once they're genuinely separate
 deployments (see `imagesharp-standalone-service-plan.md` §2). For that case,
 use Blob mode instead.
 
-### Blob mode: resolving originals from Azure Blob Storage
+### Blob mode: reading original images from Azure Blob Storage
 
 If Umbraco's own media is Blob-backed instead of local disk, point the
 standalone service at the same container directly — no shared disk between
@@ -253,7 +257,7 @@ The Umbraco app needs the same `Sources` list (route prefixes and patterns;
 storage is ignored there) so its URL generator and redirect middleware (step 3)
 send exactly these paths to the service.
 
-### HTTP-proxy mode: fetching originals from Umbraco over HTTP
+### HTTP-proxy mode: fetching original images from Umbraco over HTTP
 
 If Umbraco's media is plain local disk *and* Umbraco and the standalone
 service are genuinely separate deployments with no shared disk/volume,

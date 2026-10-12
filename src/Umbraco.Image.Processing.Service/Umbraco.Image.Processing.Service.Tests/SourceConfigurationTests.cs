@@ -13,7 +13,7 @@ namespace Umbraco.Image.Processing.Service.Tests;
 /// <summary>
 /// The service refuses to start on a source configuration that would silently read the wrong place, and
 /// says which source (index and prefix) is wrong. A single source keeps the 2.x defaults (LocalDisk,
-/// <c>wwwroot/media</c>); with several, each source has to say where its originals come from.
+/// <c>wwwroot/media</c>); with several, each source has to say where its original images come from.
 /// </summary>
 public sealed class SourceConfigurationTests : IDisposable
 {

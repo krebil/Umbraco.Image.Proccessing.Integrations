@@ -51,7 +51,7 @@ public sealed class HttpProxySourcesTests : IAsyncDisposable
     [Fact]
     public async Task EachHttpProxySource_FetchesItsOwnOriginal()
     {
-        // Same relative path under both prefixes, different originals.
+        // Same relative path under both prefixes, different original images.
         _mediaOriginals["/photo.png"] = TestImages.SolidColorPngBytes(40, 20);
         _archiveOriginals["/photo.png"] = TestImages.SolidColorPngBytes(20, 40);
         string originBaseUrl = await StartOriginAsync();

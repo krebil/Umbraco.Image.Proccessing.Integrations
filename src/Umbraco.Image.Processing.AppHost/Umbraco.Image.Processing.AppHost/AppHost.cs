@@ -27,7 +27,7 @@ IResourceBuilder<ProjectResource> umbraco = builder.AddProject<Projects.Umbraco>
     .WaitFor(imageProcessingService);
 
 // Reverse direction of the reference above: the Service needs Umbraco's own internal endpoint to
-// fetch raw originals over HTTP when its /media source's Storage:Mode is HttpProxy (production-hardening ticket 12). Always
+// fetch original images over HTTP when its /media source's Storage:Mode is HttpProxy (production-hardening ticket 12). Always
 // set, not conditional — mirrors ImageProcessing__Standalone__BaseUrl's unconditional wiring above:
 // cheap to wire, and harmless when the source isn't configured to read it (its Storage:Mode defaults to
 // LocalDisk). Deliberately not paired with a `.WaitFor(umbraco)` on imageProcessingService: umbraco

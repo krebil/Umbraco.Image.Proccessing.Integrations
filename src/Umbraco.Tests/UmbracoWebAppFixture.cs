@@ -9,7 +9,7 @@ namespace Umbraco.Tests;
 /// Boots the real in-process <c>Umbraco</c> sample (production-hardening ticket 07) exactly once for
 /// the whole test class via <see cref="IClassFixture{TFixture}" /> — a full <c>BootUmbracoAsync</c>
 /// (unattended SQLite install + migrations) is too slow to pay per test method, and nothing about these
-/// pipeline tests needs a fresh Umbraco instance per request; they only need a fresh source image per
+/// pipeline tests needs a fresh Umbraco instance per request; they only need a fresh original image per
 /// request, written directly under <see cref="MediaRoot" />.
 /// </summary>
 public sealed class UmbracoWebAppFixture : IAsyncLifetime

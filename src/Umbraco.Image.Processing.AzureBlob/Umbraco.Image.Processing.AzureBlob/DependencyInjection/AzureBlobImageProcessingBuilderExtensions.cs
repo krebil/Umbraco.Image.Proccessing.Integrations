@@ -41,7 +41,7 @@ public static class AzureBlobImageProcessingBuilderExtensions
     }
 
     /// <summary>
-    /// Reads the originals of the source at <paramref name="routePrefix" /> from Azure Blob Storage: the
+    /// Reads the original images of the source at <paramref name="routePrefix" /> from Azure Blob Storage: the
     /// blob name is <see cref="AzureBlobOriginalImageSourceOptions.BlobPathPrefix" /> plus the request path
     /// after the route prefix.
     /// </summary>

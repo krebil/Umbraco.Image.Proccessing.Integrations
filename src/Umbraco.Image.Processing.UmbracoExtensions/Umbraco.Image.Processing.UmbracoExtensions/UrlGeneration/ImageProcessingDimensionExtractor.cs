@@ -9,7 +9,7 @@ namespace Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 
 /// <summary>
 /// The single <see cref="IImageDimensionExtractor" /> shared by every processor (backoffice Image
-/// Cropper preview). Reads the source header directly — no processor-specific decode needed.
+/// Cropper preview). Reads the original image's header directly — no processor-specific decode needed.
 /// </summary>
 public sealed class ImageProcessingDimensionExtractor(IOptions<ImageProcessingOptions> options) : IImageDimensionExtractor
 {

@@ -38,7 +38,7 @@ public sealed class ImageFlowImageProcessor : IImageProcessor
 
         if (!ImageHeaderReader.TryRead(new MemoryStream(sourceBytes), out ImageHeaderInfo header))
         {
-            throw new InvalidOperationException("Imageflow could not read the source image header.");
+            throw new InvalidOperationException("Imageflow could not read the original image's header.");
         }
 
         using var job = new ImageJob();

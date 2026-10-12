@@ -38,7 +38,7 @@ public static class ImageSourceBuilderExtensions
     }
 
     /// <summary>
-    /// Reads the originals of the source at <paramref name="routePrefix" /> from a local directory.
+    /// Reads the original images of the source at <paramref name="routePrefix" /> from a local directory.
     /// </summary>
     public static IImageProcessingBuilder UseLocalDiskOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<LocalDiskOriginalImageSourceOptions> configure) =>
         builder.AddOriginalImageSource(routePrefix, configure, (_, options) => new LocalDiskOriginalImageSource(options.RootPath));

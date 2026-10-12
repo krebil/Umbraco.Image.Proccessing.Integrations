@@ -3,7 +3,7 @@ using SkiaSharp;
 namespace Umbraco.Image.Processing.IntegrationTests.Shared;
 
 /// <summary>
-/// Tiny, deterministic source images for HTTP-level pipeline tests (production-hardening ticket 07).
+/// Tiny, deterministic original images for HTTP-level pipeline tests (production-hardening ticket 07).
 /// Pixel correctness isn't these tests' job — that's the parity suite's (ticket 06) — so these images
 /// only need to be valid, decodable, and large enough for a crop command to have something to crop.
 /// </summary>

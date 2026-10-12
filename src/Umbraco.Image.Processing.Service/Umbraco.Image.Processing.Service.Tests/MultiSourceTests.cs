@@ -36,7 +36,7 @@ public sealed class MultiSourceTests : IDisposable
     [Fact]
     public async Task EachPrefix_ReadsFromItsOwnStorage_AndDerivativesDoNotCollide()
     {
-        // Same relative path under both prefixes, different originals: a cache key without the prefix
+        // Same relative path under both prefixes, different original images: a cache key without the prefix
         // would hand the second request the first one's derivative.
         string relative = $"{Hex32}/assets/{Hex32}.png";
         await WriteAsync(_mediaRoot, relative, TestImages.SolidColorPngBytes(40, 20));

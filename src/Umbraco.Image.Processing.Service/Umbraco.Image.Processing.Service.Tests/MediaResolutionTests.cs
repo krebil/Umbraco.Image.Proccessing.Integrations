@@ -53,7 +53,7 @@ public sealed class MediaResolutionTests : IDisposable
     public async Task ImageSavedTheWayUmbracoSavesIt_IsResolvableThroughTheStandaloneService()
     {
         // Arrange: compute the relative path via Umbraco's actual media-path algorithm — not a
-        // hand-typed guess — and write a real source image there, simulating what Umbraco's media
+        // hand-typed guess — and write a real original image there, simulating what Umbraco's media
         // pipeline does on a real upload.
         string relativePath = new UniqueMediaPathScheme().GetFilePath(fileManager: null!, Guid.NewGuid(), Guid.NewGuid(), "photo.jpg");
         string fullPath = Path.Combine(_mediaRoot, relativePath);
