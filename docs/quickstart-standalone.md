@@ -112,11 +112,20 @@ each source's storage from configuration instead, under
 }
 ```
 
-`Storage:Mode` is `LocalDisk` (default; `Storage:LocalDisk:RootPath`),
-`AzureBlob` (`Storage:AzureBlob:ConnectionString`/`ContainerName`/`BlobPathPrefix`)
-or `HttpProxy` (`Storage:HttpProxy:UmbracoBaseUrl`). The service refuses to
-start without at least one source. Its root (`/`) answers with a link to its
-source code (`SourceCodeUrl`, defaulting to this repository).
+`Storage:Mode` is `LocalDisk` (`Storage:LocalDisk:RootPath`), `AzureBlob`
+(`Storage:AzureBlob:ConnectionString`/`ContainerName`/`BlobPathPrefix`) or
+`HttpProxy` (`Storage:HttpProxy:UmbracoBaseUrl`). A single source may leave
+`Storage:Mode` out and gets `LocalDisk` at `wwwroot/media`, as in 2.x. With
+several sources, each must set `Storage:Mode` and the settings that mode
+needs (`LocalDisk:RootPath`; `AzureBlob:ConnectionString` and
+`ContainerName`; `HttpProxy:UmbracoBaseUrl`), so no source quietly reads
+another's default; `AzureBlob:ConnectionString` and `HttpProxy:UmbracoBaseUrl`
+are required in any case. The service refuses to start otherwise, and
+without at least one source, naming the source by index and prefix. A
+leftover 2.x setting (`ImageProcessing:RoutePrefix`, `Storage`, `Proxy`,
+`OriginalsRootPath`) is logged as a warning at start-up. Its root (`/`)
+answers with a link to its source code (`SourceCodeUrl`, defaulting to this
+repository).
 
 Local-disk storage must resolve to the same media files Umbraco serves. It
 needs local disk reachable from both processes — a shared volume, or (as this

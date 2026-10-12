@@ -1,7 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Options;
 using SkiaSharp;
 using Umbraco.Image.Processing.IntegrationTests.Shared;
 using Xunit;
@@ -95,7 +94,7 @@ public sealed class MultiSourceTests : IDisposable
             ["ImageProcessing:Processor"] = "ImageFlow",
         });
 
-        OptionsValidationException ex = Assert.Throws<OptionsValidationException>(() => factory.CreateClient());
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
         Assert.Contains("ImageProcessing:Sources", ex.Message);
     }
 

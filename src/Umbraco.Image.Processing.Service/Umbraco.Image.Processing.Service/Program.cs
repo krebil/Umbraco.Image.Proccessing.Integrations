@@ -1,7 +1,7 @@
 using Umbraco.Image.Processing.AzureBlob.DependencyInjection;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
-using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Service;
 #if INCLUDE_IMAGEFLOW
 using Umbraco.Image.Processing.ImageFlow;
 #endif
@@ -37,44 +37,36 @@ switch (processor)
 }
 
 // Every source in ImageProcessing:Sources declares its route (RoutePrefix, PathPattern; bound into
-// ImageProcessingOptions above) and the storage its originals come from, registered under its route prefix.
-builder.Services.AddOptions<ImageProcessingOptions>()
-    .Validate(
-        options => options.Sources.Count > 0,
-        "ImageProcessing:Sources must configure at least one source, e.g. Sources:0:RoutePrefix = \"/media\" " +
-        "with Sources:0:Storage:Mode = \"LocalDisk\" | \"AzureBlob\" | \"HttpProxy\".")
-    .ValidateOnStart();
-
-foreach (IConfigurationSection source in imageProcessingSection.GetSection("Sources").GetChildren())
+// ImageProcessingOptions above) and the storage its original images come from, registered under its
+// route prefix. A source that would read the wrong place stops the service here, by name.
+foreach (ConfiguredImageSource source in ImageSourceConfiguration.Read(imageProcessingSection))
 {
-    string routePrefix = source["RoutePrefix"]
-        ?? throw new InvalidOperationException($"ImageProcessing:Sources:{source.Key} has no RoutePrefix.");
-    IConfigurationSection storage = source.GetSection("Storage");
-
-    switch (storage.GetValue("Mode", ImageStorageMode.LocalDisk))
+    switch (source.Mode)
     {
         case ImageStorageMode.LocalDisk:
-            imageProcessingBuilder.UseLocalDiskOriginalImageSource(routePrefix, options => storage.GetSection("LocalDisk").Bind(options));
+            imageProcessingBuilder.UseLocalDiskOriginalImageSource(source.RoutePrefix, options => source.Storage.GetSection("LocalDisk").Bind(options));
             break;
 
-        // Reads originals straight from the Blob container the owning app writes to — no shared
+        // Reads original images straight from the Blob container the owning app writes to — no shared
         // disk/volume between the two processes.
         case ImageStorageMode.AzureBlob:
-            imageProcessingBuilder.UseAzureBlobOriginalImageSource(routePrefix, options => storage.GetSection("AzureBlob").Bind(options));
+            imageProcessingBuilder.UseAzureBlobOriginalImageSource(source.RoutePrefix, options => source.Storage.GetSection("AzureBlob").Bind(options));
             break;
 
-        // Fetches originals from Umbraco itself over HTTP, via the raw-original endpoint Umbraco
+        // Fetches original images from Umbraco itself over HTTP, via the raw-original endpoint Umbraco
         // mounts at HttpOriginalImageSource.OriginRoutePrefix.
         case ImageStorageMode.HttpProxy:
-            imageProcessingBuilder.UseHttpOriginalImageSource(routePrefix, options => storage.GetSection("HttpProxy").Bind(options));
+            imageProcessingBuilder.UseHttpOriginalImageSource(source.RoutePrefix, options => source.Storage.GetSection("HttpProxy").Bind(options));
             break;
-
-        case ImageStorageMode mode:
-            throw new InvalidOperationException($"ImageProcessing:Sources:{source.Key} has the unknown storage mode \"{mode}\".");
     }
 }
 
 WebApplication app = builder.Build();
+
+foreach (string setting in ImageSourceConfiguration.SettingsNoLongerRead(imageProcessingSection))
+{
+    app.Logger.LogWarning("{Setting} is a 2.x setting this service no longer reads; its 3.0 form is in the README's 2.x to 3.0 mapping.", setting);
+}
 
 // This entire app is the image service — Core's middleware is the whole pipeline, matched against
 // ImageProcessing:Sources so the paths it serves line up with what the Umbraco sample's redirect
@@ -96,19 +88,6 @@ internal enum ImageProcessorKind
 {
     SkiaSharp,
     ImageFlow,
-}
-
-/// <summary>
-/// Where one source (<c>ImageProcessing:Sources:N:Storage:Mode</c>) resolves original (unprocessed) images
-/// from. LocalDisk reads a directory (<c>Storage:LocalDisk:RootPath</c>), e.g. a disk/volume shared with
-/// Umbraco; AzureBlob reads a Blob container (<c>Storage:AzureBlob</c>), e.g. the one Umbraco's media file
-/// system writes to; HttpProxy fetches the raw original from Umbraco itself over HTTP (<c>Storage:HttpProxy</c>).
-/// </summary>
-internal enum ImageStorageMode
-{
-    LocalDisk,
-    AzureBlob,
-    HttpProxy,
 }
 
 // The compiler-generated top-level-statements Program class is already public in ASP.NET Core Web

@@ -20,7 +20,11 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IImageProcessingBuilder AddImageProcessing(this IServiceCollection services, Action<ImageProcessingOptions>? configure = null)
     {
-        services.AddOptions<ImageProcessingOptions>().Configure(options => configure?.Invoke(options));
+        // Validated when the host starts, so an unusable source list fails there and names the source.
+        services.AddOptions<ImageProcessingOptions>()
+            .Configure(options => configure?.Invoke(options))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ImageProcessingOptions>, ImageProcessingOptionsValidator>());
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IHmacSigner, HmacSigner>();

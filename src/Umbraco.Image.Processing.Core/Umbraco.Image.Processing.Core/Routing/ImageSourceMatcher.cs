@@ -33,30 +33,26 @@ public sealed class ImageSourceMatcher
     public ImageSourceMatcher(ImageProcessingOptions options)
     {
         _supportedExtensions = options.SupportedRequestExtensions;
-
-        IEnumerable<ImageSourceOptions> sources = options.Sources.Count > 0
-            ? options.Sources
-            : [new ImageSourceOptions { RoutePrefix = DefaultRoutePrefix }];
-
-        var routes = new List<Route>();
-        foreach (ImageSourceOptions source in sources)
+        _routes = BuildRoutes(options, out List<string> problems);
+        if (problems.Count > 0)
         {
-            string prefix = NormalizeRoutePrefix(source.RoutePrefix)
-                ?? throw new InvalidOperationException("Every ImageProcessing:Sources entry needs a RoutePrefix (use \"/\" to match every path).");
-
-            if (routes.Any(r => r.Prefix == prefix))
-            {
-                throw new InvalidOperationException($"ImageProcessing:Sources has more than one source with the RoutePrefix \"{prefix}\".");
-            }
-
-            routes.Add(new Route(prefix, CompilePattern(prefix, source.PathPattern)));
+            throw new InvalidOperationException(string.Join(" ", problems));
         }
-
-        _routes = [.. routes.OrderByDescending(r => r.Prefix.Length)];
     }
 
     /// <summary>The normalized route prefixes, longest first.</summary>
     public IReadOnlyList<string> RoutePrefixes => [.. _routes.Select(r => r.Prefix)];
+
+    /// <summary>
+    /// What stops <see cref="ImageProcessingOptions.Sources" /> from being matched against, one message per
+    /// source naming its index and prefix: a missing RoutePrefix, a prefix another source already has, or a
+    /// PathPattern that is not a valid regular expression. Empty when the sources are valid.
+    /// </summary>
+    public static IReadOnlyList<string> Validate(ImageProcessingOptions options)
+    {
+        BuildRoutes(options, out List<string> problems);
+        return problems;
+    }
 
     /// <summary>
     /// Lower-cases and gives the prefix one leading and no trailing <c>/</c>; <c>/</c> becomes
@@ -138,22 +134,52 @@ public sealed class ImageSourceMatcher
         return ImageSourceMatchResult.Matched(new ImageSourceMatch(route.Prefix, relativePath));
     }
 
-    private static Regex? CompilePattern(string prefix, string? pathPattern)
+    private static Route[] BuildRoutes(ImageProcessingOptions options, out List<string> problems)
     {
-        if (string.IsNullOrEmpty(pathPattern))
+        problems = [];
+        IReadOnlyList<ImageSourceOptions> sources = options.Sources.Count > 0
+            ? options.Sources
+            : [new ImageSourceOptions { RoutePrefix = DefaultRoutePrefix }];
+
+        var routes = new List<Route>();
+        var indexByPrefix = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int index = 0; index < sources.Count; index++)
         {
-            return null;
+            ImageSourceOptions source = sources[index];
+            string? prefix = NormalizeRoutePrefix(source.RoutePrefix);
+            if (prefix is null)
+            {
+                problems.Add($"ImageProcessing:Sources:{index} has no RoutePrefix (use \"/\" to match every path).");
+                continue;
+            }
+
+            if (indexByPrefix.TryGetValue(prefix, out int twin))
+            {
+                problems.Add($"ImageProcessing:Sources:{index} (\"{prefix}\") has the same RoutePrefix as ImageProcessing:Sources:{twin}.");
+                continue;
+            }
+
+            indexByPrefix[prefix] = index;
+
+            Regex? pattern = null;
+            if (!string.IsNullOrEmpty(source.PathPattern))
+            {
+                try
+                {
+                    // Anchored as a whole: the pattern is an access gate, so a partial match must never pass.
+                    pattern = new Regex($"^(?:{source.PathPattern})$", RegexOptions.CultureInvariant, PatternTimeout);
+                }
+                catch (ArgumentException ex)
+                {
+                    problems.Add($"ImageProcessing:Sources:{index} (\"{prefix}\"): PathPattern is not a valid regular expression: {ex.Message}");
+                    continue;
+                }
+            }
+
+            routes.Add(new Route(prefix, pattern));
         }
 
-        try
-        {
-            // Anchored as a whole: the pattern is an access gate, so a partial match must never pass.
-            return new Regex($"^(?:{pathPattern})$", RegexOptions.CultureInvariant, PatternTimeout);
-        }
-        catch (ArgumentException ex)
-        {
-            throw new InvalidOperationException($"The PathPattern of the ImageProcessing source \"{prefix}\" is not a valid regular expression.", ex);
-        }
+        return [.. routes.OrderByDescending(r => r.Prefix.Length)];
     }
 
     private sealed record Route(string Prefix, Regex? Pattern);

@@ -210,21 +210,43 @@ public class ImageSourceMatcherTests
     }
 
     [Fact]
-    public void DuplicatePrefixes_AreRejected()
+    public void DuplicatePrefixes_AreRejected_NamingBothSources()
     {
-        Assert.Throws<InvalidOperationException>(() => Create(Source("/media"), Source("/Media/")));
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => Create(Source("/media"), Source("/Media/")));
+
+        Assert.Contains("Sources:1", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Sources:0", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("\"/media\"", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MissingRoutePrefix_IsRejected()
+    public void MissingRoutePrefix_IsRejected_NamingTheSource()
     {
-        Assert.Throws<InvalidOperationException>(() => Create(Source(null)));
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => Create(Source("/media"), Source(null)));
+
+        Assert.Contains("Sources:1", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("RoutePrefix", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void InvalidPathPattern_IsRejected()
+    public void InvalidPathPattern_IsRejected_NamingTheSource()
     {
-        Assert.Throws<InvalidOperationException>(() => Create(Source("/media", "([a-z")));
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => Create(Source("/media"), Source("/-/archive", "([a-z")));
+
+        Assert.Contains("Sources:1", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("\"/-/archive\"", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("PathPattern", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_ListsEveryProblem_AndIsEmptyForValidSources()
+    {
+        var invalid = new ImageProcessingOptions { Sources = [Source(null), Source("/media", "([a-z"), Source("/media")] };
+        var valid = new ImageProcessingOptions { Sources = [Source("/media"), Source("/-/archive", ArchivePattern)] };
+
+        Assert.Equal(3, ImageSourceMatcher.Validate(invalid).Count);
+        Assert.Empty(ImageSourceMatcher.Validate(valid));
+        Assert.Empty(ImageSourceMatcher.Validate(new ImageProcessingOptions()));
     }
 
     [Theory]
