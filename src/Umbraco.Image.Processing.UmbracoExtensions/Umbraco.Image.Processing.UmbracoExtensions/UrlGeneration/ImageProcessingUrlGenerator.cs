@@ -15,13 +15,14 @@ namespace Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
 /// <summary>
 /// The single <see cref="IImageUrlGenerator" /> shared by every processor — output URL shape never
 /// varies by which processor is active, so there's exactly one implementation. Produces Umbraco's
-/// existing <c>/media/...?width=...&amp;cc=...</c> shape, HMAC-signed when configured.
+/// existing <c>/media/...?width=...&amp;cc=...</c> shape, HMAC-signed when configured. Takes the app's one
+/// <see cref="ImageSourceMatcher" />, so the paths it points at the service are the paths the service serves.
 /// </summary>
-public sealed class ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions> options, IHmacSigner hmacSigner) : IImageUrlGenerator
+public sealed class ImageProcessingUrlGenerator(IOptions<ImageProcessingOptions> options, IHmacSigner hmacSigner, ImageSourceMatcher sourceMatcher) : IImageUrlGenerator
 {
     private readonly ImageProcessingOptions _options = options.Value;
     private readonly IHmacSigner _hmacSigner = hmacSigner;
-    private readonly ImageSourceMatcher _sourceMatcher = new(options.Value);
+    private readonly ImageSourceMatcher _sourceMatcher = sourceMatcher;
 
     public IEnumerable<string> SupportedImageFileTypes => _options.SupportedRequestExtensions.Select(e => e.TrimStart('.'));
 

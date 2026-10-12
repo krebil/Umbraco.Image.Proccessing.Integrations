@@ -104,7 +104,7 @@ public sealed class UmbracoServiceGraphHarness : IAsyncDisposable
     public static string SignedResizeUrl(string relativeMediaUrl, int width)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new ImageProcessingOptions { HmacSecretKey = Convert.FromBase64String(HmacSecretKeyBase64) });
-        var generator = new ImageProcessingUrlGenerator(options, new HmacSigner(options));
+        var generator = new ImageProcessingUrlGenerator(options, new HmacSigner(options), new ImageSourceMatcher(options));
         return generator.GetImageUrl(new ImageUrlGenerationOptions(relativeMediaUrl) { Width = width })
             ?? throw new InvalidOperationException("ImageProcessingUrlGenerator returned no URL.");
     }

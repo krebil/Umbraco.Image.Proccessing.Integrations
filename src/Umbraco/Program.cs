@@ -1,7 +1,6 @@
 using ImageProcessingDemo;
 using Umbraco.Image.Processing.Core.DependencyInjection;
 using Umbraco.Image.Processing.Core.Middleware;
-using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.ImageFlow;
 using Umbraco.Image.Processing.SkiaSharp;
@@ -81,9 +80,8 @@ if (mode == ImageProcessingMode.InProcess)
 }
 else
 {
-    var standaloneOptions = new ImageProcessingOptions();
-    imageProcessingSection.Bind(standaloneOptions);
-    var standaloneSources = new ImageSourceMatcher(standaloneOptions);
+    // The same matcher the URL generator uses, so the paths redirected here are the paths it makes absolute.
+    ImageSourceMatcher standaloneSources = app.Services.GetRequiredService<ImageSourceMatcher>();
     string standaloneBaseUrl = imageProcessingSection.GetValue<string>("Standalone:BaseUrl")
         ?? throw new InvalidOperationException("ImageProcessing:Standalone:BaseUrl must be configured when ImageProcessing:Mode is Standalone.");
 

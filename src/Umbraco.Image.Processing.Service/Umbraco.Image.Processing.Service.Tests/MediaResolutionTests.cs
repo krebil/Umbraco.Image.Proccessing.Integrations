@@ -7,6 +7,7 @@ using SkiaSharp;
 using Umbraco.Cms.Core.IO.MediaPathSchemes;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Image.Processing.Core.Options;
+using Umbraco.Image.Processing.Core.Routing;
 using Umbraco.Image.Processing.Core.Security;
 using Umbraco.Image.Processing.IntegrationTests.Shared;
 using Umbraco.Image.Processing.UmbracoExtensions.UrlGeneration;
@@ -72,7 +73,7 @@ public sealed class MediaResolutionTests : IDisposable
         // The URL Umbraco's own media pipeline would hand IImageUrlGenerator for this item.
         // ImageProcessingUrlGenerator only appends query params onto it — it never reshapes the path.
         var urlGeneratorOptions = MicrosoftOptions.Create(new ImageProcessingOptions { HmacSecretKey = _hmacSecretKey });
-        var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions));
+        var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions), new ImageSourceMatcher(urlGeneratorOptions));
         string? url = urlGenerator.GetImageUrl(new ImageUrlGenerationOptions("/media/" + relativePath) { Width = 200 });
         Assert.NotNull(url);
         Assert.Contains("hmac=", url);
@@ -111,7 +112,7 @@ public sealed class MediaResolutionTests : IDisposable
             })));
 
         var urlGeneratorOptions = MicrosoftOptions.Create(new ImageProcessingOptions { HmacSecretKey = _hmacSecretKey });
-        var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions));
+        var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions), new ImageSourceMatcher(urlGeneratorOptions));
         string? url = urlGenerator.GetImageUrl(new ImageUrlGenerationOptions("/media/not-the-real-path/photo.jpg") { Width = 200 });
         Assert.NotNull(url);
 
