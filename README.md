@@ -33,7 +33,8 @@ and `ImageProcessing:Proxy` settings with `ImageProcessing:Sources`:
 In code, `UseAzureBlobOriginalImageSource` and `UseHttpOriginalImageSource` gain overloads that
 take the route prefix they serve (the overloads without one still replace the default source), and
 `UseLocalDiskOriginalImageSource(routePrefix, …)` and `AddOriginalImageSource(routePrefix, …)` are
-new. `LocalDiskOriginalImageSource` now takes its
+new; the latter also comes as `AddOriginalImageSource<TOptions>(routePrefix, configure, factory)`,
+the shape the three `Use…` overloads are built on. `LocalDiskOriginalImageSource` now takes its
 root path directly. `ImageProcessingUrlGenerator` only makes URLs absolute (`ExternalBaseUrl`) for
 paths a configured source serves. Derivative cache keys now include the route prefix, so existing
 cached derivatives are regenerated once. URLs and HMAC signatures are unchanged.

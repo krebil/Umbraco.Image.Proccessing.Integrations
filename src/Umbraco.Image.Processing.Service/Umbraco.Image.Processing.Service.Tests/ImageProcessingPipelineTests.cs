@@ -1,7 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using SkiaSharp;
 using Umbraco.Image.Processing.IntegrationTests.Shared;
 using Xunit;
@@ -201,11 +200,10 @@ public sealed class ImageProcessingPipelineTests : IDisposable
     }
 
     private WebApplicationFactory<Program> CreateFactory() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
-                ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
-                ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
-            })));
+        ServiceFactory.Create(new Dictionary<string, string?>
+        {
+            ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
+            ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
+            ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
+        });
 }

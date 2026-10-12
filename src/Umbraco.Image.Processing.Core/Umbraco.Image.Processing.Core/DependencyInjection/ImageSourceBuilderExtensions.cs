@@ -20,14 +20,28 @@ public static class ImageSourceBuilderExtensions
     }
 
     /// <summary>
+    /// As <see cref="AddOriginalImageSource(IImageProcessingBuilder, string, Func{IServiceProvider, IOriginalImageSource})" />,
+    /// for a storage configured through its own options type: <paramref name="configure" /> fills a fresh
+    /// <typeparamref name="TOptions" />, which <paramref name="factory" /> then builds the storage from. The
+    /// shape every <c>Use…OriginalImageSource(routePrefix, …)</c> overload shares.
+    /// </summary>
+    public static IImageProcessingBuilder AddOriginalImageSource<TOptions>(
+        this IImageProcessingBuilder builder,
+        string routePrefix,
+        Action<TOptions> configure,
+        Func<IServiceProvider, TOptions, IOriginalImageSource> factory)
+        where TOptions : class, new()
+    {
+        var options = new TOptions();
+        configure(options);
+        return builder.AddOriginalImageSource(routePrefix, serviceProvider => factory(serviceProvider, options));
+    }
+
+    /// <summary>
     /// Reads the originals of the source at <paramref name="routePrefix" /> from a local directory.
     /// </summary>
-    public static IImageProcessingBuilder UseLocalDiskOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<LocalDiskOriginalImageSourceOptions> configure)
-    {
-        var options = new LocalDiskOriginalImageSourceOptions();
-        configure(options);
-        return builder.AddOriginalImageSource(routePrefix, _ => new LocalDiskOriginalImageSource(options.RootPath));
-    }
+    public static IImageProcessingBuilder UseLocalDiskOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<LocalDiskOriginalImageSourceOptions> configure) =>
+        builder.AddOriginalImageSource(routePrefix, configure, (_, options) => new LocalDiskOriginalImageSource(options.RootPath));
 
     /// <summary>The service key an <see cref="IOriginalImageSource" /> for <paramref name="routePrefix" /> is registered under.</summary>
     public static string KeyFor(string routePrefix) =>

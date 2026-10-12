@@ -1,8 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using SkiaSharp;
 using Umbraco.Cms.Core.IO.MediaPathSchemes;
 using Umbraco.Cms.Core.Models;
@@ -62,13 +60,7 @@ public sealed class MediaResolutionTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         await File.WriteAllBytesAsync(fullPath, TestImages.FourCornerPngBytes());
 
-        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
-                ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
-                ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
-            })));
+        await using WebApplicationFactory<Program> factory = CreateFactory();
 
         // The URL Umbraco's own media pipeline would hand IImageUrlGenerator for this item.
         // ImageProcessingUrlGenerator only appends query params onto it — it never reshapes the path.
@@ -103,13 +95,7 @@ public sealed class MediaResolutionTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         await File.WriteAllBytesAsync(fullPath, TestImages.FourCornerPngBytes());
 
-        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
-                ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
-                ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
-            })));
+        await using WebApplicationFactory<Program> factory = CreateFactory();
 
         var urlGeneratorOptions = MicrosoftOptions.Create(new ImageProcessingOptions { HmacSecretKey = _hmacSecretKey });
         var urlGenerator = new ImageProcessingUrlGenerator(urlGeneratorOptions, new HmacSigner(urlGeneratorOptions), new ImageSourceMatcher(urlGeneratorOptions));
@@ -122,4 +108,12 @@ public sealed class MediaResolutionTests : IDisposable
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    private WebApplicationFactory<Program> CreateFactory() =>
+        ServiceFactory.Create(new Dictionary<string, string?>
+        {
+            ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
+            ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
+            ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
+        });
 }

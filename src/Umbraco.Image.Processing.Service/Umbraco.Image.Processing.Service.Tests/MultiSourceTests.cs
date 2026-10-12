@@ -1,7 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using SkiaSharp;
 using Umbraco.Image.Processing.IntegrationTests.Shared;
@@ -91,34 +90,28 @@ public sealed class MultiSourceTests : IDisposable
     [Fact]
     public void NoSourcesConfigured_FailsAtStartup()
     {
-        using WebApplicationFactory<Program> factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, config) =>
-            {
-                config.Sources.Clear();
-                config.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ImageProcessing:Processor"] = "ImageFlow",
-                });
-            }));
+        using WebApplicationFactory<Program> factory = ServiceFactory.CreateWithoutAppSettings(new Dictionary<string, string?>
+        {
+            ["ImageProcessing:Processor"] = "ImageFlow",
+        });
 
         OptionsValidationException ex = Assert.Throws<OptionsValidationException>(() => factory.CreateClient());
         Assert.Contains("ImageProcessing:Sources", ex.Message);
     }
 
     private WebApplicationFactory<Program> CreateFactory() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ImageProcessing:Sources:0:RoutePrefix"] = "/media",
-                ["ImageProcessing:Sources:0:Storage:Mode"] = "LocalDisk",
-                ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
-                ["ImageProcessing:Sources:1:RoutePrefix"] = "/-/archive",
-                ["ImageProcessing:Sources:1:PathPattern"] = ArchivePattern,
-                ["ImageProcessing:Sources:1:Storage:Mode"] = "LocalDisk",
-                ["ImageProcessing:Sources:1:Storage:LocalDisk:RootPath"] = _archiveRoot,
-                ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
-                ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
-            })));
+        ServiceFactory.Create(new Dictionary<string, string?>
+        {
+            ["ImageProcessing:Sources:0:RoutePrefix"] = "/media",
+            ["ImageProcessing:Sources:0:Storage:Mode"] = "LocalDisk",
+            ["ImageProcessing:Sources:0:Storage:LocalDisk:RootPath"] = _mediaRoot,
+            ["ImageProcessing:Sources:1:RoutePrefix"] = "/-/archive",
+            ["ImageProcessing:Sources:1:PathPattern"] = ArchivePattern,
+            ["ImageProcessing:Sources:1:Storage:Mode"] = "LocalDisk",
+            ["ImageProcessing:Sources:1:Storage:LocalDisk:RootPath"] = _archiveRoot,
+            ["ImageProcessing:DerivativeCacheRootPath"] = _cacheRoot,
+            ["ImageProcessing:HmacSecretKey"] = Convert.ToBase64String(_hmacSecretKey),
+        });
 
     private static async Task<SKBitmap> GetImageAsync(HttpClient client, string url)
     {

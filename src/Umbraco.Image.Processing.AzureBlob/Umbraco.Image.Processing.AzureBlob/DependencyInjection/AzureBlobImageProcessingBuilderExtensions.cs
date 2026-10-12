@@ -45,10 +45,6 @@ public static class AzureBlobImageProcessingBuilderExtensions
     /// blob name is <see cref="AzureBlobOriginalImageSourceOptions.BlobPathPrefix" /> plus the request path
     /// after the route prefix.
     /// </summary>
-    public static IImageProcessingBuilder UseAzureBlobOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<AzureBlobOriginalImageSourceOptions> configure)
-    {
-        var options = new AzureBlobOriginalImageSourceOptions();
-        configure(options);
-        return builder.AddOriginalImageSource(routePrefix, _ => new AzureBlobOriginalImageSource(Microsoft.Extensions.Options.Options.Create(options)));
-    }
+    public static IImageProcessingBuilder UseAzureBlobOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<AzureBlobOriginalImageSourceOptions> configure) =>
+        builder.AddOriginalImageSource(routePrefix, configure, (_, options) => new AzureBlobOriginalImageSource(Microsoft.Extensions.Options.Options.Create(options)));
 }

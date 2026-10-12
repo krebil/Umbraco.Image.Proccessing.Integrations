@@ -43,13 +43,10 @@ public static class HttpOriginalImageSourceBuilderExtensions
     /// </summary>
     public static IImageProcessingBuilder UseHttpOriginalImageSource(this IImageProcessingBuilder builder, string routePrefix, Action<HttpOriginalImageSourceOptions> configure)
     {
-        var options = new HttpOriginalImageSourceOptions();
-        configure(options);
-
         string clientName = $"{nameof(HttpOriginalImageSource)}:{ImageSourceBuilderExtensions.KeyFor(routePrefix)}";
         builder.Services.AddHttpClient(clientName);
 
-        return builder.AddOriginalImageSource(routePrefix, serviceProvider => new HttpOriginalImageSource(
+        return builder.AddOriginalImageSource(routePrefix, configure, (serviceProvider, options) => new HttpOriginalImageSource(
             serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(clientName),
             serviceProvider.GetRequiredService<IHmacSigner>(),
             Microsoft.Extensions.Options.Options.Create(options)));
