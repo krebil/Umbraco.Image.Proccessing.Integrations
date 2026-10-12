@@ -79,24 +79,43 @@ public sealed class AzureBlobOriginalImageSourceTests(AzuriteFixture fixture) : 
     [InlineData("/x/../../secret/photo.jpg")]
     [InlineData("/./../secret/photo.jpg")]
     [InlineData("/..\\secret\\photo.jpg")]
-    [InlineData("/..%2Fsecret%2Fphoto.jpg")]
     public async Task OpenReadAsync_DotSegments_CannotEscapeTheBlobPathPrefix(string path)
     {
         // The SDK builds the blob URI with System.Uri, which collapses "." and ".." segments: without a
         // guard, "archive/../secret/photo.jpg" is fetched as "secret/photo.jpg".
+        await UploadSecretAsync();
+
+        Assert.Null(await CreateArchiveSource().OpenReadAsync(path));
+    }
+
+    [Theory]
+    [InlineData("/..%2Fsecret%2Fphoto.jpg")]
+    [InlineData("/..%2fsecret%2fphoto.jpg")]
+    [InlineData("/..%5Csecret%5Cphoto.jpg")]
+    [InlineData("/..%252Fsecret%252Fphoto.jpg")]
+    public async Task OpenReadAsync_EncodedSeparators_AreTakenLiterally_AndCannotEscapeTheBlobPathPrefix(string path)
+    {
+        // The matcher refuses these before any storage sees them; this pins that the SDK escapes the
+        // percent sign in the blob name rather than decoding the sequence into a real separator.
+        await UploadSecretAsync();
+
+        Assert.Null(await CreateArchiveSource().OpenReadAsync(path));
+    }
+
+    private async Task UploadSecretAsync()
+    {
         var container = new BlobContainerClient(_fixture.ConnectionString, _containerName);
         await container.CreateIfNotExistsAsync();
         await container.GetBlobClient("secret/photo.jpg").UploadAsync(new MemoryStream("secret"u8.ToArray()), overwrite: true);
+    }
 
-        var source = new AzureBlobOriginalImageSource(MicrosoftOptions.Create(new AzureBlobOriginalImageSourceOptions
+    private AzureBlobOriginalImageSource CreateArchiveSource() =>
+        new(MicrosoftOptions.Create(new AzureBlobOriginalImageSourceOptions
         {
             ConnectionString = _fixture.ConnectionString,
             ContainerName = _containerName,
             BlobPathPrefix = "archive",
         }));
-
-        Assert.Null(await source.OpenReadAsync(path));
-    }
 
     [Fact]
     public async Task OpenReadAsync_DefaultBlobPathPrefix_PrependsMediaToTheRequestPath()

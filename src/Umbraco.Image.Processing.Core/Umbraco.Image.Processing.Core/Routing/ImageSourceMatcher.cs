@@ -11,7 +11,7 @@ namespace Umbraco.Image.Processing.Core.Routing;
 /// matching <see cref="ImageSourceOptions.RoutePrefix" />, then a supported extension, then the source's
 /// <see cref="ImageSourceOptions.PathPattern" />. Shared by the middleware, the URL generator and any
 /// redirect-to-the-service logic, so all of them agree on which paths the service handles. A path whose
-/// prefix matched but which cannot be checked (a dot segment, a pattern that times out) is
+/// prefix matched but which cannot be checked (a dot segment, an encoded separator, a pattern that times out) is
 /// <see cref="ImageSourceMatchOutcome.Rejected" />, not a miss: it belongs to that source and must not be
 /// passed on to a later handler.
 /// </summary>
@@ -113,6 +113,11 @@ public sealed class ImageSourceMatcher
         if (PathSegments.HasDotSegment(relativePath))
         {
             return ImageSourceMatchResult.Rejected(route.Prefix, ImageSourceRejection.DotSegment);
+        }
+
+        if (PathSegments.HasEncodedSeparator(relativePath))
+        {
+            return ImageSourceMatchResult.Rejected(route.Prefix, ImageSourceRejection.EncodedSeparator);
         }
 
         if (route.Pattern is not null)

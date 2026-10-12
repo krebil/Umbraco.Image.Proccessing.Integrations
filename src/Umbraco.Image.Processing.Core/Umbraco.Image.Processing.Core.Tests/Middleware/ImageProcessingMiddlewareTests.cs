@@ -98,6 +98,22 @@ public sealed class ImageProcessingMiddlewareTests : IDisposable
         Assert.Contains(host.Logs.Entries, e => e.Category == typeof(ImageProcessingMiddleware).FullName && e.Message.Contains("DotSegment", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("/media/..%2F..%2Fsecret.png")]
+    [InlineData("/media/..%5C..%5Csecret.png")]
+    [InlineData("/media/..%252F..%252Fsecret.png")]
+    [InlineData("/media/..%255C..%255Csecret.png")]
+    public async Task EncodedTraversal_IsRefusedWith400_AndNeverReachesStaticFiles(string path)
+    {
+        Write(Path.Combine(_root, "secret.png"), StaticBytes);
+        await using Host host = await StartAsync(pathPattern: null);
+
+        using HttpResponseMessage response = await host.Client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsByteArrayAsync());
+    }
+
     [Fact]
     public async Task PatternTimeout_IsRefusedWith404_LoggedAsWarning_AndNeverReachesStaticFiles()
     {

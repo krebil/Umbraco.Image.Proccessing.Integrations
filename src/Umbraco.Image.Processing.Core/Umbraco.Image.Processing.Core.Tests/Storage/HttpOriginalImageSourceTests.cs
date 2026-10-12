@@ -30,6 +30,7 @@ public sealed class HttpOriginalImageSourceTests : IAsyncDisposable
     private static readonly byte[] KnownBytes = [1, 2, 3, 4, 5, 6, 7, 8];
 
     private readonly byte[] _hmacSecretKey = RandomNumberGenerator.GetBytes(32);
+    private readonly List<string> _requestTargets = [];
     private readonly IHost _originHost;
 
     public HttpOriginalImageSourceTests()
@@ -89,6 +90,26 @@ public sealed class HttpOriginalImageSourceTests : IAsyncDisposable
         Assert.Null(stream);
     }
 
+    [Theory]
+    [InlineData("/..%2F..%2Fsecret.jpg")]
+    [InlineData("/..%5C..%5Csecret.jpg")]
+    [InlineData("/..%252F..%252Fsecret.jpg")]
+    public async Task OpenReadAsync_EncodedSeparators_GoOnTheWireUnchanged(string path)
+    {
+        // The matcher refuses these before any storage sees them; this pins that the request itself
+        // neither decodes the sequence into a real separator (which the origin's own path handling would
+        // then act on) nor re-encodes it, so the origin endpoint sees exactly what was asked for and its
+        // own matcher refuses it the same way.
+        HttpOriginalImageSource source = CreateSource(_hmacSecretKey);
+
+        Stream? stream = await source.OpenReadAsync(path);
+
+        Assert.Null(stream);
+        string requestTarget = Assert.Single(_requestTargets);
+        Assert.Contains(path, requestTarget, StringComparison.Ordinal);
+        Assert.DoesNotContain("/../", requestTarget, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task OpenReadAsync_WrongHmacSecretKey_ReturnsNull()
     {
@@ -104,10 +125,21 @@ public sealed class HttpOriginalImageSourceTests : IAsyncDisposable
 
     private HttpOriginalImageSource CreateSource(byte[] hmacSecretKey)
     {
-        HttpClient client = _originHost.GetTestClient();
+        TestServer server = _originHost.GetTestServer();
+        var client = new HttpClient(new RecordingHandler(server.CreateHandler(), _requestTargets)) { BaseAddress = server.BaseAddress };
         var signerOptions = MicrosoftOptions.Create(new ImageProcessingOptions { HmacSecretKey = hmacSecretKey });
         var signer = new HmacSigner(signerOptions);
         var sourceOptions = MicrosoftOptions.Create(new HttpOriginalImageSourceOptions { UmbracoBaseUrl = client.BaseAddress!.ToString().TrimEnd('/') });
         return new HttpOriginalImageSource(client, signer, sourceOptions);
+    }
+
+    /// <summary>Records the request target as <see cref="HttpClient" /> would put it on the wire; TestServer has no wire.</summary>
+    private sealed class RecordingHandler(HttpMessageHandler inner, List<string> targets) : DelegatingHandler(inner)
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            targets.Add(request.RequestUri!.PathAndQuery);
+            return base.SendAsync(request, cancellationToken);
+        }
     }
 }

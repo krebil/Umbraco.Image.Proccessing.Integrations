@@ -45,6 +45,21 @@ public sealed class LocalDiskOriginalImageSourceTests : IDisposable
         Assert.Null(await new LocalDiskOriginalImageSource(root).OpenReadAsync("/../outside.jpg"));
     }
 
+    [Theory]
+    [InlineData("/..%2Foutside.jpg")]
+    [InlineData("/..%5Coutside.jpg")]
+    [InlineData("/..%252Foutside.jpg")]
+    [InlineData("/1234%2F..%2F..%2Foutside.jpg")]
+    public async Task EncodedSeparators_AreTakenLiterally_AndCannotEscapeTheRoot(string path)
+    {
+        // The matcher refuses these before any storage sees them; this pins that the storage itself
+        // never decodes them either, should a host hand them over directly.
+        string root = await WriteAsync("media", "1234/photo.jpg");
+        await File.WriteAllBytesAsync(Path.Combine(_parent, "outside.jpg"), [1]);
+
+        Assert.Null(await new LocalDiskOriginalImageSource(root).OpenReadAsync(path));
+    }
+
     private async Task<string> WriteAsync(string rootName, string relativePath)
     {
         string root = Path.Combine(_parent, rootName);

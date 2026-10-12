@@ -73,8 +73,13 @@ await app.RunAsync();
   are not served by this source, and don't fall through to a shorter prefix
   either, so it works as an access gate on the storage behind the source.
 
-Paths with a `.` or `..` segment (split on `/` or `\`) are never served by
-any source, so a request can't resolve into another source's storage.
+Paths with a `.` or `..` segment (split on `/` or `\`), or with a
+percent-encoded separator (`%2F`, `%5C`) still in them, are refused with a
+400 by every source, so a request can't resolve into another source's
+storage. They are refused rather than passed on: in-process, the next
+handler would be static files, which would serve the raw file. A
+`PathPattern` that times out (100 ms) is refused with a 404 and logged as a
+warning, because it points at a pattern to fix.
 
 Storage is registered in code per route prefix
 (`UseLocalDiskOriginalImageSource`, `UseAzureBlobOriginalImageSource`,

@@ -17,6 +17,9 @@ public enum ImageSourceRejection
     /// <summary>The path after the prefix has a <c>.</c> or <c>..</c> segment.</summary>
     DotSegment,
 
+    /// <summary>The path after the prefix contains a percent-encoded <c>/</c> or <c>\</c>.</summary>
+    EncodedSeparator,
+
     /// <summary>The source's PathPattern did not finish within its timeout.</summary>
     PatternTimeout,
 }

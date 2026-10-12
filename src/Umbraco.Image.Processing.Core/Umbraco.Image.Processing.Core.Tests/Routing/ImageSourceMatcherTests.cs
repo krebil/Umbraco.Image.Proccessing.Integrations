@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Umbraco.Image.Processing.Core.Options;
 using Umbraco.Image.Processing.Core.Routing;
 using Xunit;
@@ -127,6 +128,29 @@ public class ImageSourceMatcherTests
         Assert.Equal(expectedPrefix, result.RoutePrefix);
         Assert.Null(result.Match);
         Assert.False(matcher.TryMatch(path, out _));
+    }
+
+    [Theory]
+    [InlineData("/media/..%2F..%2Fsecret.png")]
+    [InlineData("/media/..%2f..%2fsecret.png")]
+    [InlineData("/media/..%5C..%5Csecret.png")]
+    [InlineData("/media/1234%5c..%5c..%5csecret.png")]
+    [InlineData("/-/archive/assets/..%2Fsecret.png")]
+    public void EncodedSeparators_AreRejected(string path)
+    {
+        // Kestrel decodes the request path once but keeps %2F encoded, so "..%2F.." reaches the matcher
+        // as one segment and HasDotSegment never sees the "..". No source path legitimately contains an
+        // encoded separator, so the path is refused outright rather than trusting every storage to treat
+        // it literally. A double-encoded %252F arrives here as %2F after that one decode. The PathString
+        // is built explicitly: its implicit string conversion decodes like a host does (%5C becomes "\",
+        // which is then a dot segment), and this test is about the value that stays encoded.
+        ImageSourceMatcher matcher = Create(Source("/media"), Source("/-/archive", @"assets/[a-z]+\.png"));
+
+        ImageSourceMatchResult result = matcher.Match(new PathString(path));
+
+        Assert.Equal(ImageSourceMatchOutcome.Rejected, result.Outcome);
+        Assert.Equal(ImageSourceRejection.EncodedSeparator, result.Rejection);
+        Assert.NotNull(result.RoutePrefix);
     }
 
     [Theory]

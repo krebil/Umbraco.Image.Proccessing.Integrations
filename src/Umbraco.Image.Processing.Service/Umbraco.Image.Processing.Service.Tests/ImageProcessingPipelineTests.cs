@@ -167,6 +167,32 @@ public sealed class ImageProcessingPipelineTests : IDisposable
         Assert.Equal(original, bytes);
     }
 
+    [Theory]
+    [InlineData("/media/..%2Fsecret.png")]
+    [InlineData("/media/..%5Csecret.png")]
+    [InlineData("/media/..%252Fsecret.png")]
+    [InlineData("/media/1234%2F..%2F..%2Fsecret.png")]
+    public async Task EncodedTraversalRequest_IsRejected(string path)
+    {
+        // The secret file sits next to the media root, where a decoded ".." would reach it.
+        string secretPath = Path.Combine(Path.GetDirectoryName(_mediaRoot)!, "secret.png");
+        await File.WriteAllBytesAsync(secretPath, TestImages.FourCornerPngBytes());
+        try
+        {
+            await using WebApplicationFactory<Program> factory = CreateFactory();
+            using HttpClient client = factory.CreateClient();
+
+            using HttpResponseMessage response = await client.GetAsync(path);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Empty(await response.Content.ReadAsByteArrayAsync());
+        }
+        finally
+        {
+            File.Delete(secretPath);
+        }
+    }
+
     private async Task WriteSourceAsync(string relativePath, byte[] bytes)
     {
         string fullPath = Path.Combine(_mediaRoot, relativePath);
