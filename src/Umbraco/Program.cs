@@ -8,6 +8,8 @@ using Umbraco.Image.Processing.UmbracoExtensions.DependencyInjection;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+RefuseRenamedSettings(builder.Configuration);
+
 IConfigurationSection imageProcessingSection = builder.Configuration.GetSection("ImageProcessing");
 var mode = imageProcessingSection.GetValue("Mode", ImageProcessingMode.InProcess);
 var processor = imageProcessingSection.GetValue<ImageProcessorKind?>("Processor")
@@ -118,6 +120,25 @@ app.UseUmbraco()
     });
 
 await app.RunAsync();
+
+// 3.0 renamed these. A leftover 2.x value would otherwise be ignored, and this sample would quietly
+// run on the defaults: local-disk media storage, the /media source.
+static void RefuseRenamedSettings(IConfiguration configuration)
+{
+    (string Old, string New)[] renamed =
+    [
+        ("ImageProcessing:Storage:Mode", "MediaStorage:Mode"),
+        ("ImageProcessing:RoutePrefix", "ImageProcessing:Sources:N:RoutePrefix"),
+    ];
+
+    foreach ((string old, string replacement) in renamed)
+    {
+        if (configuration.GetSection(old).Exists())
+        {
+            throw new InvalidOperationException($"{old} was renamed in 3.0; set {replacement} instead (see the README's 2.x to 3.0 mapping).");
+        }
+    }
+}
 
 /// <summary>
 /// Where this sample's own image requests are handled: in-process, alongside Umbraco, or
