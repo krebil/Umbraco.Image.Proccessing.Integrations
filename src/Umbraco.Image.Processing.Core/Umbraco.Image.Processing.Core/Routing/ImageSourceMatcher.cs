@@ -10,7 +10,10 @@ namespace Umbraco.Image.Processing.Core.Routing;
 /// Decides whether a request path is an image request and which configured source serves it: longest
 /// matching <see cref="ImageSourceOptions.RoutePrefix" />, then a supported extension, then the source's
 /// <see cref="ImageSourceOptions.PathPattern" />. Shared by the middleware, the URL generator and any
-/// redirect-to-the-service logic, so all of them agree on which paths the service handles.
+/// redirect-to-the-service logic, so all of them agree on which paths the service handles. A path whose
+/// prefix matched but which cannot be checked (a dot segment, a pattern that times out) is
+/// <see cref="ImageSourceMatchOutcome.Rejected" />, not a miss: it belongs to that source and must not be
+/// passed on to a later handler.
 /// </summary>
 public sealed class ImageSourceMatcher
 {
@@ -70,10 +73,19 @@ public sealed class ImageSourceMatcher
         return trimmed.Length == 0 ? string.Empty : "/" + trimmed.ToLowerInvariant();
     }
 
+    /// <summary>
+    /// <see cref="Match" /> reduced to "does a source serve this path": <see langword="true" /> only for
+    /// <see cref="ImageSourceMatchOutcome.Matched" />. Callers that must refuse a rejected path themselves
+    /// (the middleware) use <see cref="Match" />.
+    /// </summary>
     public bool TryMatch(PathString path, [NotNullWhen(true)] out ImageSourceMatch? match)
     {
-        match = null;
+        match = Match(path).Match;
+        return match is not null;
+    }
 
+    public ImageSourceMatchResult Match(PathString path)
+    {
         Route? route = null;
         PathString remaining = default;
         foreach (Route candidate in _routes)
@@ -93,30 +105,32 @@ public sealed class ImageSourceMatcher
         }
 
         string relativePath = remaining.Value ?? string.Empty;
-        if (route is null || !_supportedExtensions.Contains(Path.GetExtension(relativePath)) || PathSegments.HasDotSegment(relativePath))
+        if (route is null || !_supportedExtensions.Contains(Path.GetExtension(relativePath)))
         {
-            return false;
+            return ImageSourceMatchResult.NoMatch;
         }
 
-        if (route.Pattern is not null && !IsPatternMatch(route.Pattern, relativePath.TrimStart('/')))
+        if (PathSegments.HasDotSegment(relativePath))
         {
-            return false;
+            return ImageSourceMatchResult.Rejected(route.Prefix, ImageSourceRejection.DotSegment);
         }
 
-        match = new ImageSourceMatch(route.Prefix, relativePath);
-        return true;
-    }
+        if (route.Pattern is not null)
+        {
+            try
+            {
+                if (!route.Pattern.IsMatch(relativePath.TrimStart('/')))
+                {
+                    return ImageSourceMatchResult.NoMatch;
+                }
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return ImageSourceMatchResult.Rejected(route.Prefix, ImageSourceRejection.PatternTimeout);
+            }
+        }
 
-    private static bool IsPatternMatch(Regex pattern, string input)
-    {
-        try
-        {
-            return pattern.IsMatch(input);
-        }
-        catch (RegexMatchTimeoutException)
-        {
-            return false;
-        }
+        return ImageSourceMatchResult.Matched(new ImageSourceMatch(route.Prefix, relativePath));
     }
 
     private static Regex? CompilePattern(string prefix, string? pathPattern)

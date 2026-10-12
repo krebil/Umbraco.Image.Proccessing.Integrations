@@ -109,17 +109,71 @@ public class ImageSourceMatcherTests
     }
 
     [Theory]
-    [InlineData("/media/../-/archive/photo.png")]
-    [InlineData("/media/..\\-\\archive\\photo.png")]
-    [InlineData("/media/1234/../../-/archive/photo.png")]
-    [InlineData("/media/./photo.png")]
-    [InlineData("/-/archive/./photo.png")]
-    public void DotSegments_AreNotMatched(string path)
+    [InlineData("/media/../-/archive/photo.png", "/media")]
+    [InlineData("/media/..\\-\\archive\\photo.png", "/media")]
+    [InlineData("/media/1234/../../-/archive/photo.png", "/media")]
+    [InlineData("/media/./photo.png", "/media")]
+    [InlineData("/-/archive/./photo.png", "/-/archive")]
+    public void DotSegments_AreRejected(string path, string expectedPrefix)
     {
         // Hosts that don't normalize the path (or a backslash Kestrel leaves alone) would otherwise hand
         // one source's storage a path that resolves into another's, past that source's PathPattern.
         ImageSourceMatcher matcher = Create(Source("/media"), Source("/-/archive", @"[a-z]+\.png"));
 
+        ImageSourceMatchResult result = matcher.Match(path);
+
+        Assert.Equal(ImageSourceMatchOutcome.Rejected, result.Outcome);
+        Assert.Equal(ImageSourceRejection.DotSegment, result.Rejection);
+        Assert.Equal(expectedPrefix, result.RoutePrefix);
+        Assert.Null(result.Match);
+        Assert.False(matcher.TryMatch(path, out _));
+    }
+
+    [Theory]
+    [InlineData("/other/photo.png")]
+    [InlineData("/media/styles.css")]
+    [InlineData("/-/archive/pages/photo.png")]
+    public void PathNoSourceServes_IsNoMatch(string path)
+    {
+        // A prefix miss, an unsupported extension and a pattern miss all mean "not an image request":
+        // the request is not ours and goes on to the next handler.
+        ImageSourceMatcher matcher = Create(Source("/media"), Source("/-/archive", @"assets/[a-z]+\.png"));
+
+        ImageSourceMatchResult result = matcher.Match(path);
+
+        Assert.Equal(ImageSourceMatchOutcome.NoMatch, result.Outcome);
+        Assert.Null(result.RoutePrefix);
+        Assert.Null(result.Match);
+        Assert.Null(result.Rejection);
+    }
+
+    [Fact]
+    public void MatchedPath_CarriesTheSourceAndRelativePath()
+    {
+        ImageSourceMatcher matcher = Create(Source("/media"));
+
+        ImageSourceMatchResult result = matcher.Match("/media/1234/photo.png");
+
+        Assert.Equal(ImageSourceMatchOutcome.Matched, result.Outcome);
+        Assert.Equal("/media", result.RoutePrefix);
+        Assert.Equal(new ImageSourceMatch("/media", "/1234/photo.png"), result.Match);
+        Assert.Null(result.Rejection);
+    }
+
+    [Fact]
+    public void PatternTimeout_IsRejected_NotAMiss()
+    {
+        // (\w+\s?)* backtracks exponentially on a long run of word characters that is not followed by the
+        // end of the input. The prefix matched, so the request is ours, but the gate could not be checked:
+        // it must be refused rather than passed on as if no source served it.
+        ImageSourceMatcher matcher = Create(Source("/media", @"(\w+\s?)*"));
+        string path = "/media/" + new string('a', 64) + ".png";
+
+        ImageSourceMatchResult result = matcher.Match(path);
+
+        Assert.Equal(ImageSourceMatchOutcome.Rejected, result.Outcome);
+        Assert.Equal(ImageSourceRejection.PatternTimeout, result.Rejection);
+        Assert.Equal("/media", result.RoutePrefix);
         Assert.False(matcher.TryMatch(path, out _));
     }
 

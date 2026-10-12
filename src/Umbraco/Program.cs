@@ -89,9 +89,11 @@ else
 
     // Redirects image requests under any configured source to the standalone image-processing service
     // instead of handling them here — see imagesharp-standalone-service-plan.md §3.2 for the pattern this mirrors.
+    // A rejected path (dot segment, pattern timeout) is still the source's request: it goes to the
+    // service too, which refuses it, rather than on to this app's static files.
     app.Use(async (context, next) =>
     {
-        if (!standaloneSources.TryMatch(context.Request.Path, out _))
+        if (standaloneSources.Match(context.Request.Path).Outcome == ImageSourceMatchOutcome.NoMatch)
         {
             await next();
             return;

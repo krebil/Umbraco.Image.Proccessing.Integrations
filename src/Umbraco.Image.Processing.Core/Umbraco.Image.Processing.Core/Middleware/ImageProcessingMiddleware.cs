@@ -41,12 +41,20 @@ public sealed class ImageProcessingMiddleware(
 
     public async Task InvokeAsync(HttpContext context)
     {
-        if (!_sourceMatcher.TryMatch(context.Request.Path, out ImageSourceMatch? match))
+        ImageSourceMatchResult result = _sourceMatcher.Match(context.Request.Path);
+        if (result.Outcome == ImageSourceMatchOutcome.NoMatch)
         {
             await _next(context);
             return;
         }
 
+        if (result.Outcome == ImageSourceMatchOutcome.Rejected)
+        {
+            Refuse(context, result);
+            return;
+        }
+
+        ImageSourceMatch match = result.Match!;
         string relativePath = match.RelativePath;
 
         ParsedImageCommand parsed = ImageCommandParser.Parse(context.Request.Query, _options);
@@ -110,6 +118,26 @@ public sealed class ImageProcessingMiddleware(
             destination.Position = 0;
             await WriteResponseAsync(context, destination, ContentTypeFor(resolved.Format));
         }
+    }
+
+    /// <summary>
+    /// Ends a request whose source could not or must not check it. Passing it on is not an option:
+    /// in-process, the next handler is typically static files, which would serve the raw file under
+    /// <c>wwwroot/&lt;prefix&gt;</c> past the source's gate.
+    /// </summary>
+    private void Refuse(HttpContext context, ImageSourceMatchResult result)
+    {
+        if (result.Rejection == ImageSourceRejection.PatternTimeout)
+        {
+            // Answered like a pattern miss, so the gate's shape is not observable from outside; the
+            // warning is for the operator, because a pattern that times out is a pattern to fix.
+            _logger.LogWarning("The PathPattern of image source {RoutePrefix} timed out on {Path}; the request was refused.", result.RoutePrefix, context.Request.Path);
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        _logger.LogInformation("Refused image request {Path} for source {RoutePrefix}: {Rejection}.", context.Request.Path, result.RoutePrefix, result.Rejection);
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
     }
 
     private async Task WriteResponseAsync(HttpContext context, Stream content, string contentType)
