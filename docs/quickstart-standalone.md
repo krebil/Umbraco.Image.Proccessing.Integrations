@@ -456,8 +456,9 @@ standard settings, so set them the way you would for any other .NET service:
 
 Both exporters can be set at once. Traces cover each request (path, status,
 duration) and its outbound calls; metrics add ASP.NET Core, HttpClient and
-runtime counters. A 400 is a missing or invalid HMAC signature, a 422 an
-original the processor cannot read. Application Insights samples traces
+runtime counters. A 400 indicates a missing or invalid HMAC signature or a
+rejected image-source path; a 422 indicates an original whose header cannot
+be read. Application Insights samples traces
 (its exporter's default rate limit), so high image traffic does not mean
 high ingestion; Live Metrics is unsampled.
 
