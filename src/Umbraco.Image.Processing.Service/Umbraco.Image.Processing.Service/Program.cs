@@ -11,6 +11,12 @@ using Umbraco.Image.Processing.SkiaSharp;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+// Off unless OTEL_EXPORTER_OTLP_ENDPOINT or APPLICATIONINSIGHTS_CONNECTION_STRING is set (Telemetry.cs).
+builder.AddTelemetry();
+
+// /health/live, /health/ready and /health/region, always on (Health.cs).
+builder.AddHealth();
+
 IConfigurationSection imageProcessingSection = builder.Configuration.GetSection("ImageProcessing");
 var processor = imageProcessingSection.GetValue<ImageProcessorKind?>("Processor")
     ?? throw new InvalidOperationException("ImageProcessing:Processor must be configured (e.g. \"SkiaSharp\" or \"ImageFlow\").");
@@ -73,8 +79,11 @@ foreach (string setting in ImageSourceConfiguration.SettingsNoLongerRead(imagePr
 // middleware and ExternalBaseUrl-prefixed URLs both target.
 app.UseImageProcessing();
 
-// A visible link to the running code (AGPL §13 when built with the ImageFlow processor); also gives
-// health probes a 200 at the root.
+// Short-circuited at routing, so they answer ahead of the image pipeline above.
+app.MapHealthEndpoints();
+
+// A visible link to the running code (AGPL §13 when built with the ImageFlow processor). Still a 200
+// for probes that predate /health/*; point new ones at HealthEndpoints.
 string sourceCodeUrl = app.Configuration.GetValue("SourceCodeUrl", "https://github.com/krebil/Umbraco.Image.Proccessing.Integrations")!;
 app.MapGet("/", () => Results.Text($"Umbraco image processing service. Source code: {sourceCodeUrl}"));
 

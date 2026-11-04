@@ -28,4 +28,18 @@
         <ProjectReference Include="..\..\Umbraco.Image.Processing.AzureBlob\Umbraco.Image.Processing.AzureBlob\Umbraco.Image.Processing.AzureBlob.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Umbraco.Image.Processing.Service.Tests" />
+    </ItemGroup>
+
+    <!-- Optional telemetry (Telemetry.cs): inert unless an exporter is configured. -->
+    <ItemGroup>
+        <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    </ItemGroup>
+
 </Project>

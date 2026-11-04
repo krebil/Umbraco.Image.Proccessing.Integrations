@@ -442,6 +442,55 @@ With the standalone service running and the Umbraco app in `Standalone` mode:
 - With `HmacSecretKey` set on both sides, confirm a tampered query string
   (change a digit in `width`) gets a 400 from the standalone service.
 
+## Telemetry
+
+The service sends OpenTelemetry traces, metrics and logs once a destination is
+configured, and registers no OpenTelemetry at all until then. It reads the
+standard settings, so set them the way you would for any other .NET service:
+
+| Setting | Effect |
+|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Exports over OTLP: an Aspire dashboard, a collector, Azure Container Apps' managed OpenTelemetry agent |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Exports to Azure Monitor Application Insights, including Live Metrics and Azure SDK (Blob) dependencies |
+| `OTEL_SERVICE_NAME` | The service's name; Application Insights shows it as the cloud role name |
+
+Both exporters can be set at once. Traces cover each request (path, status,
+duration) and its outbound calls; metrics add ASP.NET Core, HttpClient and
+runtime counters. A 400 is a missing or invalid HMAC signature, a 422 an
+original the processor cannot read. Application Insights samples traces
+(its exporter's default rate limit), so high image traffic does not mean
+high ingestion; Live Metrics is unsampled.
+
+## Health checks
+
+The service maps three endpoints in every environment, each answering a
+different probe's question:
+
+| Path | Question it answers | Checks it runs | Point at it |
+|---|---|---|---|
+| `/health/live` | Is the process responsive? | tag `live` (the built-in `self`); never a dependency | Liveness and startup probes |
+| `/health/ready` | Can this replica take traffic? | tag `ready` | Readiness probe |
+| `/health/region` | Should this deployment take traffic? | tag `ready` plus tag `region` | A global load balancer's origin probe (Front Door), availability tests |
+
+They answer 200 for Healthy and Degraded and 503 for Unhealthy, with the
+status alone as the body (`Healthy`), or a JSON list of the checks in
+Development. Responses are never cacheable, and the endpoints are
+short-circuited ahead of the image pipeline and left out of request tracing
+and the request metric, so probe volume does not show up as traffic. `/`
+still answers 200 for probes set up before these existed.
+
+Out of the box only `self` is registered. Add your own with
+`builder.Services.AddHealthChecks().AddCheck(...)` and pick the tag by what
+taking traffic away would fix: `ready` for a condition of one replica,
+`region` for storage every replica in the deployment shares, and no tag for a
+dependency shared beyond it. An untagged check fails no probe but is still
+reported.
+
+Every check, tagged or not, runs every 30 seconds and is reported to telemetry
+as the gauge `health.check.status` (meter `Umbraco.Image.Processing.Health`;
+0 healthy, 1 degraded, 2 unhealthy; dimension `check`), with one log line
+when a check's status changes.
+
 ## Scheduling eviction
 
 `IDerivativeImageCache.EvictExpiredAsync` removes entries older than
