@@ -1,10 +1,11 @@
 <Project>
 
     <!--
-      Single source of truth for the product's version. Core, SkiaSharp, ImageFlow, and
-      UmbracoExtensions are versioned in lockstep — every release bumps this one value and ships
-      all four packages under it, even if only one changed (ADR-0001). Bumping it is a manual
-      commit; a matching `v*` git tag triggers the publish workflow.
+      The version local and non-release builds produce. All packages are versioned in lockstep
+      (ADR-0001). A release does not read this value: pushing a `v*` git tag runs the publish
+      workflow, which packs every package with the version taken from the tag name
+      (`-p:Version=`), so `v3.2.0` ships 3.2.0 whatever this says. Keep it at the last released
+      version so local packs are not mistaken for an unreleased one.
     -->
     <PropertyGroup>
         <Version>3.1.0</Version>

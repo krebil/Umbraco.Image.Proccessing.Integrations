@@ -1,8 +1,10 @@
 name: Publish
 
 # Production-hardening ticket 10: tag-triggered NuGet publish. A maintainer publishes a release by
-# pushing a `v*` git tag against a version already committed to Directory.Build.props — a
-# deliberate, auditable action, not something that happens automatically on every merge.
+# pushing a `v*` git tag — a deliberate, auditable action, not something that happens automatically
+# on every merge. The tag is the single source of the release version: `v3.1.0` packs every package
+# as 3.1.0 (ADR-0001, amended). The `<Version>` in Directory.Build.props only governs local and
+# non-release builds; it is overridden here, so a tag never has to wait on a bump commit.
 #
 # Gate reuse: the `test` job below is a `workflow_call` invocation of
 # .github/workflows/build-and-test.yml (ticket 09) — the exact same restore/build/test steps that
@@ -47,6 +49,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The tag name minus its leading `v` is the package version. Anything that is not a plain
+      # SemVer 2 version (optionally with a prerelease suffix, e.g. v3.2.0-beta.1) fails here,
+      # before anything is packed, so a typo'd tag cannot publish a garbage version.
+      - name: Read release version from tag
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not a release version (expected vMAJOR.MINOR.PATCH[-prerelease])."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing version $version from tag $TAG"
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -62,23 +80,23 @@ jobs:
       # the scope decision and a flag that CONTEXT.md's "four published NuGet packages" line (and
       # this ticket's own "four" wording) is now stale and needs a follow-up doc fix.
       #
-      # Each project pulls its <Version> from the single lockstep value in Directory.Build.props
-      # (ADR-0001) — no per-project version override, so all five packages ship under the same
-      # version number every release.
+      # Every pack step passes the same -p:Version from the tag (ADR-0001), overriding the
+      # Directory.Build.props default — no per-project version override, so all five packages ship
+      # under the same version number every release.
       - name: Pack - Core
-        run: dotnet pack src/Umbraco.Image.Processing.Core/Umbraco.Image.Processing.Core/Umbraco.Image.Processing.Core.csproj --no-restore -c Release -o ./nupkgs
+        run: dotnet pack src/Umbraco.Image.Processing.Core/Umbraco.Image.Processing.Core/Umbraco.Image.Processing.Core.csproj --no-restore -c Release -o ./nupkgs -p:Version=${{ steps.version.outputs.version }}
 
       - name: Pack - SkiaSharp
-        run: dotnet pack src/Umbraco.Image.Processing.SkiaSharp/Umbraco.Image.Processing.SkiaSharp/Umbraco.Image.Processing.SkiaSharp.csproj --no-restore -c Release -o ./nupkgs
+        run: dotnet pack src/Umbraco.Image.Processing.SkiaSharp/Umbraco.Image.Processing.SkiaSharp/Umbraco.Image.Processing.SkiaSharp.csproj --no-restore -c Release -o ./nupkgs -p:Version=${{ steps.version.outputs.version }}
 
       - name: Pack - ImageFlow
-        run: dotnet pack src/Umbraco.Image.Processing.ImageFlow/Umbraco.Image.Processing.ImageFlow/Umbraco.Image.Processing.ImageFlow.csproj --no-restore -c Release -o ./nupkgs
+        run: dotnet pack src/Umbraco.Image.Processing.ImageFlow/Umbraco.Image.Processing.ImageFlow/Umbraco.Image.Processing.ImageFlow.csproj --no-restore -c Release -o ./nupkgs -p:Version=${{ steps.version.outputs.version }}
 
       - name: Pack - UmbracoExtensions
-        run: dotnet pack src/Umbraco.Image.Processing.UmbracoExtensions/Umbraco.Image.Processing.UmbracoExtensions/Umbraco.Image.Processing.UmbracoExtensions.csproj --no-restore -c Release -o ./nupkgs
+        run: dotnet pack src/Umbraco.Image.Processing.UmbracoExtensions/Umbraco.Image.Processing.UmbracoExtensions/Umbraco.Image.Processing.UmbracoExtensions.csproj --no-restore -c Release -o ./nupkgs -p:Version=${{ steps.version.outputs.version }}
 
       - name: Pack - AzureBlob
-        run: dotnet pack src/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob.csproj --no-restore -c Release -o ./nupkgs
+        run: dotnet pack src/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob/Umbraco.Image.Processing.AzureBlob.csproj --no-restore -c Release -o ./nupkgs -p:Version=${{ steps.version.outputs.version }}
 
       # Trusted Publishing: exchange this job's GitHub OIDC token for a NuGet.org API key that is
       # valid for 1 hour. Requested right before the push step so the key doesn't expire unused.
