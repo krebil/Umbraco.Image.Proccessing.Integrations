@@ -9,6 +9,7 @@
     <PropertyGroup>
         <PackageId>Krebil.Umbraco.Image.Processing.AzureBlob</PackageId>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,6 +18,10 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
 </Project>
