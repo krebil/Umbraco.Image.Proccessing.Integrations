@@ -15,5 +15,13 @@
     <PackageVersion Include="Microsoft.ICU.ICU4C.Runtime" Version="$(UmbracoAppLocalIcuVersion)" />
     <!-- Blob media file system, opt-in via MediaStorage:Mode = "AzureBlob" (production-hardening ticket 11). -->
     <PackageVersion Include="Umbraco.StorageProviders.AzureBlob" Version="18.0.0" />
+    <!--
+      Patched versions of packages Umbraco.Cms 18.1.1 brings in transitively, pinned so restore passes NuGet audit:
+      MessagePack (GHSA-qhrr-8q5h-9q3h) and System.Security.Cryptography.Pkcs (GHSA-2fmv-rv2c-59x7,
+      GHSA-846f-f764-76mx). Remove each once Umbraco.Cms depends on a patched version. ImageSharp is not pinned: see
+      ImageSharpAuditSuppressions.props.
+    -->
+    <PackageVersion Include="MessagePack" Version="3.1.12" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
   </ItemGroup>
 </Project>
