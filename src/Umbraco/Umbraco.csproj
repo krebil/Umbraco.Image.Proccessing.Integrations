@@ -16,6 +16,12 @@
     <PackageReference Include="Umbraco.StorageProviders.AzureBlob" />
   </ItemGroup>
 
+  <!-- Transitive security pins; versions and reasons in Directory.Packages.props. -->
+  <ItemGroup>
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core\Umbraco.Image.Processing.Core.csproj" />
     <ProjectReference Include="..\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp\Umbraco.Image.Processing.SkiaSharp.csproj" />

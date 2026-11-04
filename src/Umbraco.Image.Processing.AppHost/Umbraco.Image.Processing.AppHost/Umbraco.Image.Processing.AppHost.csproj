@@ -19,6 +19,8 @@
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.5.0" />
     <PackageReference Include="DotNetEnv" Version="3.2.0" />
+    <!-- Aspire.Hosting 13.5 brings MessagePack 2.5.302 in through StreamJsonRpc (GHSA-qhrr-8q5h-9q3h). Remove once it doesn't. -->
+    <PackageReference Include="MessagePack" Version="2.5.307" />
   </ItemGroup>
 
 </Project>

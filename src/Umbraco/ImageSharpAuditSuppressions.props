@@ -15,5 +15,10 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j9gm-c75j-xc9q" />
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jjfr-hcj7-qf5w" />
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wmxv-xphr-5c9g" />
+    <!--
+      Patched in 3.2.0, but 3.2.0 also requires a Six Labors license key for Release builds, the same obstacle as 4.x.
+      Umbraco.Cms 18.3 moves to 3.2.0; drop this entry with the Umbraco.Cms upgrade.
+    -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v76p-62qx-wwq2" />
   </ItemGroup>
 </Project>
