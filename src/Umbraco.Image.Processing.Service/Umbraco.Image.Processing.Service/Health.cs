@@ -14,34 +14,36 @@ public static class HealthEndpoints
 {
     public const string Prefix = "/health";
 
-    /// <summary>The process answers: <see cref="HealthTags.Live"/> checks only, never a dependency. Liveness and startup probes.</summary>
+    /// <summary>
+    /// The process answers: <see cref="HealthTags.Live"/> checks only, never a dependency. Liveness and startup probes;
+    /// a failure restarts the replica.
+    /// </summary>
     public const string Live = Prefix + "/live";
 
-    /// <summary>This replica can take traffic: <see cref="HealthTags.Ready"/> checks. The readiness probe.</summary>
-    public const string Ready = Prefix + "/ready";
-
     /// <summary>
-    /// This deployment (region) should take traffic: <see cref="HealthTags.Ready"/> and <see cref="HealthTags.Region"/>
-    /// checks. A global load balancer's origin probe (Front Door, Traffic Manager) and availability tests.
+    /// This instance can serve: <see cref="HealthTags.Ready"/> checks. A failure takes the replica out of rotation, never
+    /// restarts it. The readiness probe, a global load balancer's origin probe (Front Door, Traffic Manager) and
+    /// availability tests: a deployment whose replicas are all unready has nothing to route to, so the load balancer
+    /// sends its traffic to another.
     /// </summary>
-    public const string Region = Prefix + "/region";
+    public const string Ready = Prefix + "/ready";
 }
 
 /// <summary>
-/// A check's tags decide which endpoint runs it, so pick the tag by what taking traffic away would fix. A check with
-/// none of these is still run and reported to telemetry (<see cref="HealthStatusPublisher"/>) but fails no probe: the
-/// place for a dependency shared beyond the region, where draining every replica at once helps nobody.
+/// A check's tags decide which endpoint runs it, so pick the tag by what a restart or taking traffic away would fix. A
+/// check with neither is still run and reported to telemetry (<see cref="HealthStatusPublisher"/>) but fails no probe:
+/// the place for a dependency shared beyond the deployment, where draining every replica at once helps nobody.
 /// </summary>
 public static class HealthTags
 {
     /// <summary>The process itself. Never a dependency, or a dependency outage restarts every replica.</summary>
     public const string Live = "live";
 
-    /// <summary>A condition of this replica alone, which another replica may not share. Taking it out of rotation helps.</summary>
+    /// <summary>
+    /// What the instance cannot serve without: its own state, or a dependency of its deployment (its original-image
+    /// storage). Taking it out of rotation helps; when every replica fails it, a load balancer fails the deployment over.
+    /// </summary>
     public const string Ready = "ready";
-
-    /// <summary>A dependency every replica in this region shares and cannot serve without (its original-image storage).</summary>
-    public const string Region = "region";
 }
 
 /// <summary>Registers and maps the health checks (<see cref="HealthEndpoints"/>). Always on: probes need them deployed.</summary>
@@ -74,7 +76,7 @@ internal static class Health
     {
         Map(HealthEndpoints.Live, check => check.Tags.Contains(HealthTags.Live));
         Map(HealthEndpoints.Ready, check => check.Tags.Contains(HealthTags.Ready));
-        Map(HealthEndpoints.Region, check => check.Tags.Contains(HealthTags.Ready) || check.Tags.Contains(HealthTags.Region));
+
 
         return app;
 

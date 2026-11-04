@@ -14,7 +14,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // Off unless OTEL_EXPORTER_OTLP_ENDPOINT or APPLICATIONINSIGHTS_CONNECTION_STRING is set (Telemetry.cs).
 builder.AddTelemetry();
 
-// /health/live, /health/ready and /health/region, always on (Health.cs).
+// /health/live and /health/ready, always on (Health.cs).
 builder.AddHealth();
 
 IConfigurationSection imageProcessingSection = builder.Configuration.GetSection("ImageProcessing");

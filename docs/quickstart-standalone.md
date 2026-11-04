@@ -463,14 +463,17 @@ high ingestion; Live Metrics is unsampled.
 
 ## Health checks
 
-The service maps three endpoints in every environment, each answering a
+The service maps two endpoints in every environment, each answering a
 different probe's question:
 
-| Path | Question it answers | Checks it runs | Point at it |
-|---|---|---|---|
-| `/health/live` | Is the process responsive? | tag `live` (the built-in `self`); never a dependency | Liveness and startup probes |
-| `/health/ready` | Can this replica take traffic? | tag `ready` | Readiness probe |
-| `/health/region` | Should this deployment take traffic? | tag `ready` plus tag `region` | A global load balancer's origin probe (Front Door), availability tests |
+| Path | Question it answers | Checks it runs | When it fails | Point at it |
+|---|---|---|---|---|
+| `/health/live` | Is the process responsive? | tag `live` (the built-in `self`); never a dependency | the replica is restarted | Liveness and startup probes |
+| `/health/ready` | Can this instance serve? | tag `ready` | the replica gets no traffic, never a restart | Readiness probe, a global load balancer's origin probe (Front Door), availability tests |
+
+A deployment whose replicas are all unready has nothing to route to (Azure
+Container Apps' ingress answers 503), so a load balancer probing
+`/health/ready` fails it over to another deployment.
 
 They answer 200 for Healthy and Degraded and 503 for Unhealthy, with the
 status alone as the body (`Healthy`), or a JSON list of the checks in
@@ -481,10 +484,10 @@ still answers 200 for probes set up before these existed.
 
 Out of the box only `self` is registered. Add your own with
 `builder.Services.AddHealthChecks().AddCheck(...)` and pick the tag by what
-taking traffic away would fix: `ready` for a condition of one replica,
-`region` for storage every replica in the deployment shares, and no tag for a
-dependency shared beyond it. An untagged check fails no probe but is still
-reported.
+taking traffic away would fix: `ready` for what the instance cannot serve
+without (its own state, or storage every replica in the deployment shares),
+and no tag for a dependency shared beyond the deployment. An untagged check
+fails no probe but is still reported.
 
 Every check, tagged or not, runs every 30 seconds and is reported to telemetry
 as the gauge `health.check.status` (meter `Umbraco.Image.Processing.Health`;

@@ -11,7 +11,7 @@ using Xunit;
 namespace Umbraco.Image.Processing.Service.Tests;
 
 /// <summary>
-/// The three health endpoints answer in every environment, each runs only the checks its tag selects, and every
+/// The two health endpoints answer in every environment, each runs only the checks its tag selects, and every
 /// check's status reaches the health gauge.
 /// </summary>
 public sealed class HealthTests
@@ -19,7 +19,6 @@ public sealed class HealthTests
     [Theory]
     [InlineData(HealthEndpoints.Live)]
     [InlineData(HealthEndpoints.Ready)]
-    [InlineData(HealthEndpoints.Region)]
     public async Task Deployed_EachEndpointAnswersItsStatusAloneAndUncacheable(string path)
     {
         using WebApplicationFactory<Program> factory = Create();
@@ -40,10 +39,10 @@ public sealed class HealthTests
     }
 
     [Theory]
-    [InlineData(HealthTags.Ready, HttpStatusCode.OK, HttpStatusCode.ServiceUnavailable, HttpStatusCode.ServiceUnavailable)]
-    [InlineData(HealthTags.Region, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.ServiceUnavailable)]
-    [InlineData("untagged", HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK)]
-    public async Task AnUnhealthyCheck_FailsOnlyTheEndpointsItsTagSelects(string tag, HttpStatusCode live, HttpStatusCode ready, HttpStatusCode region)
+    [InlineData(HealthTags.Live, HttpStatusCode.ServiceUnavailable, HttpStatusCode.OK)]
+    [InlineData(HealthTags.Ready, HttpStatusCode.OK, HttpStatusCode.ServiceUnavailable)]
+    [InlineData("untagged", HttpStatusCode.OK, HttpStatusCode.OK)]
+    public async Task AnUnhealthyCheck_FailsOnlyTheEndpointsItsTagSelects(string tag, HttpStatusCode live, HttpStatusCode ready)
     {
         using WebApplicationFactory<Program> factory = Create(services => services.AddHealthChecks()
             .AddCheck("failing", () => HealthCheckResult.Unhealthy("down"), [tag]));
@@ -51,7 +50,6 @@ public sealed class HealthTests
 
         Assert.Equal(live, (await client.GetAsync(HealthEndpoints.Live)).StatusCode);
         Assert.Equal(ready, (await client.GetAsync(HealthEndpoints.Ready)).StatusCode);
-        Assert.Equal(region, (await client.GetAsync(HealthEndpoints.Region)).StatusCode);
     }
 
     [Fact]
